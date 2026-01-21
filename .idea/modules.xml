@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/API-Gateway/API-Gateway.iml" filepath="$PROJECT_DIR$/API-Gateway/API-Gateway.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/Atlas Eats Food delivery.iml" filepath="$PROJECT_DIR$/.idea/Atlas Eats Food delivery.iml" />
+    </modules>
+  </component>
+</project>
