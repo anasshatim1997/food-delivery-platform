@@ -1,6 +1,7 @@
 spring:
   application:
     name: api-gateway
+
   cloud:
     gateway:
       routes:
@@ -53,12 +54,9 @@ spring:
           filters:
             - StripPrefix=2
 
-server:
-  port: 8000
-
 jwt:
   secret: ${JWT_SECRET}
-  expiration: 86400000
+  expiration: ${JWT_EXPIRATION}
 
 management:
   endpoints:

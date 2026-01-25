@@ -1,0 +1,11 @@
+spring:
+  profiles:
+    active: dev
+
+server:
+  port: 8000
+
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG
+    reactor.netty: DEBUG

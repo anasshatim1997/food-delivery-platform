@@ -1,0 +1,11 @@
+spring:
+  profiles:
+    active: prod
+
+server:
+  port: ${SERVER_PORT}
+
+logging:
+  level:
+    org.springframework.cloud.gateway: INFO
+    reactor.netty: INFO

@@ -1,0 +1,44 @@
+name: User Service CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build with Maven
+        working-directory: services/user-service
+        run: mvn clean package -DskipTests
+
+      - name: Run Tests
+        working-directory: services/user-service
+        run: mvn test
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: services/user-service/target/surefire-reports/
+
+      - name: Build Docker Image
+        run: |
+          cd services/user-service
+          docker build -t user-service:latest .
+
+      - name: Print Build Success
+        run: echo "✅ User Service built and tested successfully!"
