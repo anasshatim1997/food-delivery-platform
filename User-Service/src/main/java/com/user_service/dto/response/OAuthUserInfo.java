@@ -6,20 +6,13 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class UserResponse {
-
-    private String id;
-
+public class OAuthUserInfo {
     private String email;
-
-    private String phone;
-
-    private String role;
-
-    private String status;
-
-    private Boolean isVerified;
+    private String name;
+    private String providerId;
+    private String provider;
+    private String profileImage;
 }

@@ -5,7 +5,10 @@ import com.user_service.enums.VehicleType;
 import com.user_service.enums.VerificationStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.hibernate.proxy.HibernateProxy;
 import org.hibernate.validator.constraints.URL;
 

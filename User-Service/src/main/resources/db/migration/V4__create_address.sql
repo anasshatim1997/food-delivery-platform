@@ -14,7 +14,7 @@ CREATE TABLE addresses (
                            created_at TIMESTAMP NOT NULL,
                            updated_at TIMESTAMP NOT NULL,
                            CONSTRAINT pk_addresses PRIMARY KEY (id),
-                           CONSTRAINT fk_addresses_customer FOREIGN KEY (customer_id) REFERENCES customers(user_id)
+                           CONSTRAINT fk_addresses_customer FOREIGN KEY (customer_id) REFERENCES customers(user_id) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_addresses_customer ON addresses(customer_id);

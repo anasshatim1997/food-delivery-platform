@@ -1,5 +1,6 @@
 package com.user_service.security;
 
+import com.user_service.entity.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
@@ -14,11 +15,11 @@ import java.util.Map;
 import java.util.function.Function;
 
 @Component
-public class JwtUtil {
+public class JwtService {
 
     private final JwtProperties properties;
 
-    public JwtUtil(JwtProperties properties) {
+    public JwtService(JwtProperties properties) {
         this.properties = properties;
     }
 
@@ -45,6 +46,21 @@ public class JwtUtil {
         return buildToken(claims, userDetails, properties.getRefreshExpirationMs());
     }
 
+    public String generateAccessToken(User user) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("role", user.getRole().name());
+        claims.put("userId", user.getId().toString());
+        return buildToken(claims, CustomUserDetails.fromUser(user), properties.getExpirationMs());
+    }
+
+    public String generateRefreshToken(User user) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("role", user.getRole().name());
+        claims.put("userId", user.getId().toString());
+        claims.put("type", "refresh");
+        return buildToken(claims, CustomUserDetails.fromUser(user), properties.getRefreshExpirationMs());
+    }
+
     private String buildToken(Map<String, Object> claims, UserDetails userDetails, long expiration) {
         return Jwts.builder()
                 .claims(claims)
@@ -60,7 +76,7 @@ public class JwtUtil {
                 && !isTokenExpired(token);
     }
 
-    private boolean isTokenExpired(String token) {
+    public boolean isTokenExpired(String token) {
         return extractClaim(token, Claims::getExpiration).before(new Date());
     }
 
@@ -88,5 +104,13 @@ public class JwtUtil {
 
     public boolean isRefreshToken(String token) {
         return "refresh".equals(extractClaim(token, c -> c.get("type", String.class)));
+    }
+
+    public Long getAccessTokenExpiration() {
+        return properties.getExpirationMs();
+    }
+
+    public Long getRefreshTokenExpiration() {
+        return properties.getRefreshExpirationMs();
     }
 }

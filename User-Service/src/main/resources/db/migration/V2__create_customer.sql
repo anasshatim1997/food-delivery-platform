@@ -6,5 +6,5 @@ CREATE TABLE customers (
                            wallet_balance DECIMAL(19, 2) NOT NULL DEFAULT 0.00,
                            total_orders INTEGER NOT NULL DEFAULT 0,
                            CONSTRAINT pk_customers PRIMARY KEY (user_id),
-                           CONSTRAINT fk_customers_user FOREIGN KEY (user_id) REFERENCES users(id)
+                           CONSTRAINT fk_customers_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );

@@ -2,18 +2,12 @@ package com.user_service.entity;
 
 import com.user_service.enums.Role;
 import com.user_service.enums.Status;
-
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
-
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-
+import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -23,20 +17,14 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "users")
+@Inheritance(strategy = InheritanceType.JOINED)
 @EntityListeners(AuditingEntityListener.class)
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-@Inheritance(strategy = InheritanceType.JOINED)
-@DiscriminatorColumn(name = "user_type")
+@Builder
 public class User {
-
-    private static final String PASSWORD_REGEX =
-            "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,20}$";
-
-    private static final String PHONE_REGEX =
-            "^(\\+212|0)([67])\\d{8}$";
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -47,28 +35,39 @@ public class User {
     @Column(nullable = false, unique = true)
     private String email;
 
-    @NotBlank(message = "Password is required")
-    @Size(min = 8, max = 20)
-    @Pattern(
-            regexp = PASSWORD_REGEX
-    )
-    @Column(nullable = false)
+    @Size(min = 8, max = 100)
+    @Column(nullable = true)
     private String password;
 
-    @NotBlank(message = "Phone number is required")
-    @Pattern(
-            regexp = PHONE_REGEX
-    )
-    @Column(name = "phone_number", nullable = false, unique = true)
-    private String phoneNumber;
+    @Pattern(regexp = "^(\\+212|0)([67])\\d{8}$")
+    @Column(name = "phone", unique = true)
+    private String phone;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @Builder.Default
     private Status status = Status.ACTIVE;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private Role role = Role.CUSTOMER;
+    @Builder.Default
+    private Role role = Role.USER;
+
+    @Column(name = "is_verified", nullable = false)
+    @Builder.Default
+    private Boolean isVerified = false;
+
+    @Column(name = "verification_code")
+    private String verificationCode;
+
+    @Column(name = "verification_code_expires_at")
+    private LocalDateTime verificationCodeExpiresAt;
+
+    @Column(name = "oauth_provider")
+    private String oauthProvider;
+
+    @Column(name = "oauth_provider_id")
+    private String oauthProviderId;
 
     @CreatedDate
     @Column(name = "created_at", updatable = false, nullable = false)
