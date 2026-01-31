@@ -3,8 +3,13 @@ name: User Service CI/CD
 on:
   push:
     branches: [ main, develop ]
+    paths:
+      - "User-Service/**"
+      - ".github/workflows/user-service-ci.yml"
   pull_request:
     branches: [ main, develop ]
+    paths:
+      - "User-Service/**"
 
 jobs:
   build-and-test:
@@ -21,24 +26,23 @@ jobs:
           cache: maven
 
       - name: Build with Maven
-        working-directory: services/user-service
+        working-directory: User-Service
         run: mvn clean package -DskipTests
 
       - name: Run Tests
-        working-directory: services/user-service
+        working-directory: User-Service
         run: mvn test
 
       - name: Upload Test Results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
-          path: services/user-service/target/surefire-reports/
+          name: user-service-test-results
+          path: User-Service/target/surefire-reports/
 
       - name: Build Docker Image
-        run: |
-          cd services/user-service
-          docker build -t user-service:latest .
+        working-directory: User-Service
+        run: docker build -t user-service:latest .
 
       - name: Print Build Success
         run: echo "✅ User Service built and tested successfully!"
