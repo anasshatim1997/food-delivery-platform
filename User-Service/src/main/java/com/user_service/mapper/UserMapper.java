@@ -1,42 +1,76 @@
 package com.user_service.mapper;
 
 import com.user_service.dto.request.RegisterRequest;
+import com.user_service.dto.response.CustomerProfileResponse;
+import com.user_service.dto.response.DriverProfileResponse;
+import com.user_service.dto.response.UserProfileResponse;
 import com.user_service.dto.response.UserResponse;
+import com.user_service.entity.Customer;
+import com.user_service.entity.Driver;
 import com.user_service.entity.User;
-import com.user_service.enums.Role;
-import com.user_service.enums.Status;
-import org.springframework.stereotype.Component;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
-@Component
-public class UserMapper {
+@Mapper(config = MapperConfigCentral.class)
+public interface UserMapper {
 
-    public UserResponse toUserResponse(User user) {
-        if (user == null) {
-            return null;
-        }
+    UserResponse toUserResponse(User user);
 
-        return UserResponse.builder()
-                .id(user.getId() != null ? user.getId().toString() : null)
-                .email(user.getEmail())
-                .phone(user.getPhone())
-                .role(user.getRole() != null ? user.getRole().name() : null)
-                .status(user.getStatus() != null ? user.getStatus().name() : null)
-                .isVerified(user.getIsVerified())
-                .build();
-    }
+    UserProfileResponse toUserProfileResponse(User user);
 
-    public User toUser(RegisterRequest request, String encodedPassword) {
-        if (request == null) {
-            return null;
-        }
+    @Mapping(target = "id", source = "user.id")
+    @Mapping(target = "email", source = "user.email")
+    @Mapping(target = "phone", source = "user.phone")
+    @Mapping(target = "role", source = "user.role")
+    @Mapping(target = "status", source = "user.status")
+    @Mapping(target = "isVerified", source = "user.isVerified")
+    @Mapping(target = "oauthProvider", source = "user.oauthProvider")
+    @Mapping(target = "oauthProviderId", source = "user.oauthProviderId")
+    @Mapping(target = "createdAt", source = "user.createdAt")
+    @Mapping(target = "updatedAt", source = "user.updatedAt")
+    @Mapping(target = "firstName", source = "customer.firstName")
+    @Mapping(target = "lastName", source = "customer.lastName")
+    @Mapping(target = "profileImage", source = "customer.profileImage")
+    @Mapping(target = "walletBalance", source = "customer.walletBalance")
+    @Mapping(target = "totalOrders", source = "customer.totalOrders")
+    CustomerProfileResponse toCustomerProfileResponse(User user, Customer customer);
 
-        return User.builder()
-                .email(request.getEmail())
-                .password(encodedPassword)
-                .phone(request.getPhone())
-                .role(Role.valueOf(request.getRole()))
-                .status(Status.ACTIVE)
-                .isVerified(false)
-                .build();
-    }
+    @Mapping(target = "id", source = "user.id")
+    @Mapping(target = "email", source = "user.email")
+    @Mapping(target = "phone", source = "user.phone")
+    @Mapping(target = "role", source = "user.role")
+    @Mapping(target = "status", source = "user.status")
+    @Mapping(target = "isVerified", source = "user.isVerified")
+    @Mapping(target = "oauthProvider", source = "user.oauthProvider")
+    @Mapping(target = "oauthProviderId", source = "user.oauthProviderId")
+    @Mapping(target = "createdAt", source = "user.createdAt")
+    @Mapping(target = "updatedAt", source = "user.updatedAt")
+    @Mapping(target = "firstName", source = "driver.firstName")
+    @Mapping(target = "lastName", source = "driver.lastName")
+    @Mapping(target = "profileImage", source = "driver.profileImage")
+    @Mapping(target = "vehicleType", source = "driver.vehicleType")
+    @Mapping(target = "vehicleNumber", source = "driver.vehicleNumber")
+    @Mapping(target = "licenseNumber", source = "driver.licenseNumber")
+    @Mapping(target = "isAvailable", source = "driver.isAvailable")
+    @Mapping(target = "currentLat", source = "driver.currentLat")
+    @Mapping(target = "currentLng", source = "driver.currentLng")
+    @Mapping(target = "rating", source = "driver.rating")
+    @Mapping(target = "totalDeliveries", source = "driver.totalDeliveries")
+    @Mapping(target = "walletBalance", source = "driver.walletBalance")
+    @Mapping(target = "verificationStatus", source = "driver.verificationStatus")
+    @Mapping(target = "verificationDocuments", source = "driver.verificationDocuments")
+    DriverProfileResponse toDriverProfileResponse(User user, Driver driver);
+
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "password", source = "encodedPassword")
+    @Mapping(target = "role", ignore = true)
+    @Mapping(target = "status", constant = "ACTIVE")
+    @Mapping(target = "isVerified", constant = "false")
+    @Mapping(target = "verificationCode", ignore = true)
+    @Mapping(target = "verificationCodeExpiresAt", ignore = true)
+    @Mapping(target = "oauthProvider", ignore = true)
+    @Mapping(target = "oauthProviderId", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    User toUser(RegisterRequest request, String encodedPassword);
 }

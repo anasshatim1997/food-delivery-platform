@@ -11,19 +11,42 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.proxy.HibernateProxy;
 import org.hibernate.validator.constraints.URL;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 
 @Entity
 @Table(name = "drivers")
+@EntityListeners(AuditingEntityListener.class)
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@PrimaryKeyJoinColumn(name = "user_id")
-public class Driver extends User {
+public class Driver {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+
+    @NotNull
+    @Column(name = "user_id", nullable = false, unique = true)
+    private UUID userId;
+
+    @NotBlank
+    @Column(name = "first_name", nullable = false)
+    private String firstName;
+
+    @NotBlank
+    @Column(name = "last_name", nullable = false)
+    private String lastName;
+
+    @Column(name = "profile_image")
+    private String profileImage;
 
     @NotNull
     @Column(name = "vehicle_type", nullable = false)
@@ -39,7 +62,7 @@ public class Driver extends User {
     private String licenseNumber;
 
     @Column(name = "is_available", nullable = false)
-    private boolean isAvailable = false;
+    private Boolean isAvailable = false;
 
     @DecimalMin(value = "-90.0")
     @DecimalMax(value = "90.0")
@@ -76,6 +99,10 @@ public class Driver extends User {
     @MapKeyColumn(name = "document_type")
     @Column(name = "document_url")
     private Map<@NotBlank String, @NotBlank @URL String> verificationDocuments;
+
+    @CreatedDate
+    @Column(name = "created_at", updatable = false, nullable = false)
+    private LocalDateTime createdAt;
 
     @Override
     public final boolean equals(Object o) {

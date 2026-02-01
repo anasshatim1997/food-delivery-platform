@@ -16,3 +16,10 @@ CREATE TABLE users (
                        CONSTRAINT uq_users_email UNIQUE (email),
                        CONSTRAINT uq_users_phone UNIQUE (phone)
 );
+
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_phone ON users(phone);
+CREATE INDEX idx_users_role ON users(role);
+CREATE INDEX idx_users_status ON users(status);
+CREATE INDEX idx_users_verification_code ON users(verification_code);
+CREATE INDEX idx_users_oauth_provider ON users(oauth_provider, oauth_provider_id);

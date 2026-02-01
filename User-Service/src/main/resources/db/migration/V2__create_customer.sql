@@ -1,10 +1,18 @@
 CREATE TABLE customers (
+                           id UUID NOT NULL,
                            user_id UUID NOT NULL,
                            first_name VARCHAR(255) NOT NULL,
                            last_name VARCHAR(255) NOT NULL,
                            profile_image VARCHAR(500),
+                           default_address_id UUID,
                            wallet_balance DECIMAL(19, 2) NOT NULL DEFAULT 0.00,
                            total_orders INTEGER NOT NULL DEFAULT 0,
-                           CONSTRAINT pk_customers PRIMARY KEY (user_id),
+                           created_at TIMESTAMP NOT NULL,
+                           CONSTRAINT pk_customers PRIMARY KEY (id),
+                           CONSTRAINT uq_customers_user_id UNIQUE (user_id),
                            CONSTRAINT fk_customers_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+CREATE INDEX idx_customers_user_id ON customers(user_id);
+CREATE INDEX idx_customers_wallet ON customers(wallet_balance);
+CREATE INDEX idx_customers_total_orders ON customers(total_orders);

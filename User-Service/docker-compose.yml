@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile
     container_name: my-java-app
     ports:
-      - "8001:8001" # Map container port 8001 to host
+      - "8001:8001"
     environment:
       - JAVA_OPTS=-Xms256m -Xmx512m
     restart: unless-stopped

@@ -1,6 +1,9 @@
 package com.user_service.service;
 
-import com.user_service.dto.request.*;
+import com.user_service.dto.request.LoginRequest;
+import com.user_service.dto.request.OAuthLoginRequest;
+import com.user_service.dto.request.RefreshTokenRequest;
+import com.user_service.dto.request.RegisterRequest;
 import com.user_service.dto.response.AuthResponse;
 
 public interface IAuthService {
@@ -9,13 +12,13 @@ public interface IAuthService {
 
     AuthResponse registerDriver(RegisterRequest request);
 
-    void updateCustomerProfile(String email, CreateCustomerRequest request);
-
-    void updateDriverProfile(String email, CreateDriverRequest request);
-
     AuthResponse login(LoginRequest request);
 
     AuthResponse refreshToken(RefreshTokenRequest request);
 
     AuthResponse oauthLogin(OAuthLoginRequest request);
+
+    void verifyEmail(String token);
+
+    void resendVerificationEmail(String email);
 }

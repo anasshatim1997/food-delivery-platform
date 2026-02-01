@@ -9,20 +9,32 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.proxy.HibernateProxy;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Objects;
+import java.util.List;
+import java.util.UUID;
 
 @Entity
 @Table(name = "customers")
+@EntityListeners(AuditingEntityListener.class)
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-@PrimaryKeyJoinColumn(name = "user_id")
-public class Customer extends User {
+public class Customer {
+
+    @Id
+    @Column(name = "user_id")
+    private UUID id;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @MapsId
+    @JoinColumn(name = "user_id")
+    private User user;
 
     @NotBlank
     @Column(name = "first_name", nullable = false)
@@ -35,11 +47,19 @@ public class Customer extends User {
     @Column(name = "profile_image")
     private String profileImage;
 
-    @OneToMany(mappedBy = "customer", orphanRemoval = true, fetch = FetchType.LAZY, cascade = CascadeType.ALL)
-    private ArrayList<Address> addresses;
+    @Column(name = "default_address_id")
+    private UUID defaultAddressId;
+
+    @OneToMany(
+            mappedBy = "customer",
+            orphanRemoval = true,
+            cascade = CascadeType.ALL,
+            fetch = FetchType.LAZY
+    )
+    private List<Address> addresses = new ArrayList<>();
 
     @NotNull
-    @DecimalMin(value = "0.0")
+    @DecimalMin("0.0")
     @Column(name = "wallet_balance", nullable = false)
     private BigDecimal walletBalance = BigDecimal.ZERO;
 
@@ -48,19 +68,19 @@ public class Customer extends User {
     @Column(name = "total_orders", nullable = false)
     private Integer totalOrders = 0;
 
+    @CreatedDate
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
+
     @Override
     public final boolean equals(Object o) {
         if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
-        Customer customer = (Customer) o;
-        return getId() != null && Objects.equals(getId(), customer.getId());
+        if (!(o instanceof Customer other)) return false;
+        return id != null && id.equals(other.id);
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return getClass().hashCode();
     }
 }

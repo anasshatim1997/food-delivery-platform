@@ -1,5 +1,6 @@
 package com.user_service.dto.request;
 
+import com.user_service.enums.VehicleType;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -8,6 +9,9 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.validator.constraints.URL;
+
+import java.util.Map;
 
 @Data
 @NoArgsConstructor
@@ -34,6 +38,17 @@ public class RegisterRequest {
     )
     private String phone;
 
-    @NotBlank(message = "Role is required")
-    private String role;
+    @NotBlank(message = "First name is required")
+    private String firstName;
+
+    @NotBlank(message = "Last name is required")
+    private String lastName;
+
+    private VehicleType vehicleType;
+
+    private String vehicleNumber;
+
+    private String licenseNumber;
+
+    private Map<@NotBlank String, @NotBlank @URL String> verificationDocuments;
 }

@@ -3,22 +3,33 @@ package com.user_service.security;
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletRequestWrapper;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.util.HtmlUtils;
 
 import java.io.IOException;
 
 @Component
-public class XSSFilter implements Filter {
+public class XSSFilter extends OncePerRequestFilter {
 
     @Override
-    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
-            throws IOException, ServletException {
-        chain.doFilter(new XSSRequestWrapper((HttpServletRequest) request), response);
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain filterChain) throws ServletException, IOException {
+        filterChain.doFilter(new XSSRequestWrapper(request), response);
+    }
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        return path.startsWith("/api/auth/v1/") ||
+                path.startsWith("/swagger-ui") ||
+                path.startsWith("/v3/api-docs") ||
+                path.equals("/actuator/health");
     }
 
     private static class XSSRequestWrapper extends HttpServletRequestWrapper {
-
         public XSSRequestWrapper(HttpServletRequest request) {
             super(request);
         }
@@ -26,12 +37,9 @@ public class XSSFilter implements Filter {
         @Override
         public String[] getParameterValues(String parameter) {
             String[] values = super.getParameterValues(parameter);
-            if (values == null) {
-                return null;
-            }
-            int count = values.length;
-            String[] encodedValues = new String[count];
-            for (int i = 0; i < count; i++) {
+            if (values == null) return null;
+            String[] encodedValues = new String[values.length];
+            for (int i = 0; i < values.length; i++) {
                 encodedValues[i] = sanitize(values[i]);
             }
             return encodedValues;
@@ -39,29 +47,25 @@ public class XSSFilter implements Filter {
 
         @Override
         public String getParameter(String parameter) {
-            String value = super.getParameter(parameter);
-            return sanitize(value);
+            return sanitize(super.getParameter(parameter));
         }
 
         @Override
         public String getHeader(String name) {
-            String value = super.getHeader(name);
-            return sanitize(value);
+            return sanitize(super.getHeader(name));
         }
 
         private String sanitize(String value) {
-            if (value == null) {
-                return null;
-            }
+            if (value == null) return null;
             value = HtmlUtils.htmlEscape(value);
-            value = value.replaceAll("<script>", "");
-            value = value.replaceAll("</script>", "");
-            value = value.replaceAll("<iframe>", "");
-            value = value.replaceAll("</iframe>", "");
-            value = value.replaceAll("javascript:", "");
-            value = value.replaceAll("onerror=", "");
-            value = value.replaceAll("onload=", "");
-            value = value.replaceAll("eval\\(", "");
+            value = value.replaceAll("(?i)<script>", "")
+                    .replaceAll("(?i)</script>", "")
+                    .replaceAll("(?i)<iframe>", "")
+                    .replaceAll("(?i)</iframe>", "")
+                    .replaceAll("(?i)javascript:", "")
+                    .replaceAll("(?i)onerror=", "")
+                    .replaceAll("(?i)onload=", "")
+                    .replaceAll("(?i)eval\\(", "");
             return value;
         }
     }

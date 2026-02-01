@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Data
 @NoArgsConstructor
@@ -14,29 +15,17 @@ import java.time.LocalDateTime;
 @Builder
 public class AddressResponse {
 
-    private String id;
-
+    private UUID id;
     private String label;
-
     private String street;
-
     private String building;
-
     private String floor;
-
     private String apartment;
-
     private String city;
-
     private BigDecimal latitude;
-
     private BigDecimal longitude;
-
     private String deliveryInstructions;
-
     private Boolean isDefault;
-
     private LocalDateTime createdAt;
-
     private LocalDateTime updatedAt;
 }

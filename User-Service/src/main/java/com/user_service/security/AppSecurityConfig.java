@@ -35,24 +35,29 @@ public class AppSecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
-                                "/api/v1/users/register/customer",
-                                "/api/v1/users/register/driver",
-                                "/api/v1/users/login",
+                                "/api/auth/v1/register/customer",
+                                "/api/auth/v1/register/driver",
+                                "/api/auth/v1/login",
+                                "/api/auth/v1/refresh-token",
+                                "/api/auth/v1/oauth/login",
+                                "/api/auth/v1/verify-email",
+                                "/api/auth/v1/resend-verification",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
                                 "/swagger-ui.html",
                                 "/actuator/health"
                         ).permitAll()
-                        .requestMatchers("/api/v1/users/me").authenticated()
-                        .requestMatchers("/api/v1/users/addresses/**").hasRole("CUSTOMER")
-                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/users/me").authenticated()
+                        .requestMatchers("/api/users/me/customer").hasRole("CUSTOMER")
+                        .requestMatchers("/api/users/me/driver").hasRole("DRIVER")
+                        .requestMatchers("/api/users/me/profile-image").authenticated()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(xssFilter, UsernamePasswordAuthenticationFilter.class)
