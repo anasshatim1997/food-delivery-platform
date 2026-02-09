@@ -1,5 +1,4 @@
 package com.user_service.dto.response;
-
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.user_service.enums.Role;
@@ -8,10 +7,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
-
 import java.time.LocalDateTime;
 import java.util.UUID;
-
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -22,7 +19,6 @@ import java.util.UUID;
         @JsonSubTypes.Type(value = DriverProfileResponse.class, name = "driver")
 })
 public class UserProfileResponse {
-
     private UUID id;
     private String email;
     private String phone;

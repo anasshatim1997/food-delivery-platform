@@ -1,12 +1,17 @@
 package com.user_service.service;
 
-import com.user_service.dto.request.LoginRequest;
-import com.user_service.dto.request.OAuthLoginRequest;
-import com.user_service.dto.request.RefreshTokenRequest;
-import com.user_service.dto.request.RegisterRequest;
+import com.user_service.dto.request.*;
 import com.user_service.dto.response.AuthResponse;
 
+import java.util.UUID;
+
 public interface IAuthService {
+
+    AuthResponse registerUser(RegisterUserRequest request);
+
+    AuthResponse completeCustomerProfile(UUID userId, CompleteCustomerProfileRequest request);
+
+    AuthResponse completeDriverProfile(UUID userId, CompleteDriverProfileRequest request);
 
     AuthResponse registerCustomer(RegisterRequest request);
 

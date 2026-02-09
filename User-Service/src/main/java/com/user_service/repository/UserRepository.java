@@ -7,9 +7,8 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 import java.util.UUID;
 
-
 @Repository
-public interface UserRepository extends JpaRepository<User , UUID> {
+public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByEmail(String email);
-    Optional<User> findByPhone(String phoneNumber);
+    Optional<User> findByPhone(String phone);
 }

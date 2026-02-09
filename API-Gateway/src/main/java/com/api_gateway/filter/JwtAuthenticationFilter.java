@@ -14,17 +14,22 @@ import reactor.core.publisher.Mono;
 import java.util.List;
 
 @Component
-@RequiredArgsConstructor
 public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAuthenticationFilter.Config> {
 
     final private JwtUtil jwtUtil;
+
+    public JwtAuthenticationFilter(JwtUtil jwtUtil) {
+        super(Config.class);
+        this.jwtUtil = jwtUtil;
+    }
 
     @Override
     public GatewayFilter apply(Config config) {
         return (exchange, chain) -> {
             ServerHttpRequest request = exchange.getRequest();
+            String path = request.getPath().toString();
 
-            if (isPublicEndpoint(request.getPath().toString())) {
+            if (isPublicEndpoint(path)) {
                 return chain.filter(exchange);
             }
 
@@ -65,17 +70,26 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
 
     private boolean isPublicEndpoint(String path) {
         List<String> publicPaths = List.of(
-                "/api/users/register",
-                "/api/users/login",
-                "/api/users/refresh-token",
-                "/api/restaurants/search",
-                "/api/restaurants/.*/menu",
+                "/api/auth/v1/register",
+                "/api/auth/v1/register/customer",
+                "/api/auth/v1/register/driver",
+                "/api/auth/v1/login",
+                "/api/auth/v1/refresh-token",
+                "/api/auth/v1/oauth/login",
+                "/api/auth/v1/verify-email",
+                "/api/auth/v1/resend-verification",
                 "/actuator/health",
                 "/swagger-ui",
                 "/v3/api-docs"
         );
 
-        return publicPaths.stream().anyMatch(path::matches);
+        for (String publicPath : publicPaths) {
+            if (path.startsWith(publicPath)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private Mono<Void> onError(ServerWebExchange exchange, String error, HttpStatus httpStatus) {

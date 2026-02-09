@@ -1,7 +1,5 @@
 package com.user_service.dto.response;
-
 import lombok.*;
-
 @Getter
 @Setter
 @AllArgsConstructor

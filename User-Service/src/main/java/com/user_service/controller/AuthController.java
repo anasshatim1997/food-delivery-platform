@@ -1,9 +1,6 @@
 package com.user_service.controller;
 
-import com.user_service.dto.request.LoginRequest;
-import com.user_service.dto.request.OAuthLoginRequest;
-import com.user_service.dto.request.RefreshTokenRequest;
-import com.user_service.dto.request.RegisterRequest;
+import com.user_service.dto.request.*;
 import com.user_service.dto.response.ApiResponse;
 import com.user_service.dto.response.AuthResponse;
 import com.user_service.service.IAuthService;
@@ -11,7 +8,10 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/auth/v1")
@@ -19,6 +19,37 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final IAuthService authService;
+
+    @PostMapping("/register")
+    public ResponseEntity<ApiResponse<AuthResponse>> registerUser(
+            @Valid @RequestBody RegisterUserRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.created(
+                        authService.registerUser(request),
+                        "User registered successfully. Please complete your profile."));
+    }
+
+    @PostMapping("/complete-profile/customer")
+    public ResponseEntity<ApiResponse<AuthResponse>> completeCustomerProfile(
+            @Valid @RequestBody CompleteCustomerProfileRequest request,
+            Authentication auth) {
+        UUID userId = UUID.fromString(auth.getName());
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        authService.completeCustomerProfile(userId, request),
+                        "Customer profile completed successfully"));
+    }
+
+    @PostMapping("/complete-profile/driver")
+    public ResponseEntity<ApiResponse<AuthResponse>> completeDriverProfile(
+            @Valid @RequestBody CompleteDriverProfileRequest request,
+            Authentication auth) {
+        UUID userId = UUID.fromString(auth.getName());
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        authService.completeDriverProfile(userId, request),
+                        "Driver profile completed successfully"));
+    }
 
     @PostMapping("/register/customer")
     public ResponseEntity<ApiResponse<AuthResponse>> registerCustomer(

@@ -9,7 +9,6 @@
       <module fileurl="file://$PROJECT_DIR$/Notification-Service/Notification-Service.iml" filepath="$PROJECT_DIR$/Notification-Service/Notification-Service.iml" />
       <module fileurl="file://$PROJECT_DIR$/Order-Service/Order-Service.iml" filepath="$PROJECT_DIR$/Order-Service/Order-Service.iml" />
       <module fileurl="file://$PROJECT_DIR$/Restaurant-Service/Restaurant-Service.iml" filepath="$PROJECT_DIR$/Restaurant-Service/Restaurant-Service.iml" />
-      <module fileurl="file://$PROJECT_DIR$/User-Service/User-Service.iml" filepath="$PROJECT_DIR$/User-Service/User-Service.iml" />
     </modules>
   </component>
 </project>

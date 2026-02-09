@@ -3,16 +3,15 @@ package com.user_service.security;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
+import org.springframework.context.annotation.Configuration;
 
-@Setter
+@Configuration
+@ConfigurationProperties(prefix = "jwt")
 @Getter
-@Component
-@ConfigurationProperties(prefix = "security.jwt")
+@Setter
 public class JwtProperties {
 
-    private String secret;
-    private long expirationMs;
-    private long refreshExpirationMs;
-
+    private String secretKey;
+    private Long accessTokenExpiration = 900000L;
+    private Long refreshTokenExpiration = 604800000L;
 }

@@ -1,6 +1,6 @@
 spring:
   application:
-    name: ${SPRING_APPLICATION_NAME:myapp}
+    name: ${SPRING_APPLICATION_NAME:user-service}
 
   datasource:
     url: ${DB_URL}
@@ -26,7 +26,17 @@ spring:
     locations: ${FLYWAY_LOCATIONS:classpath:db/migration}
 
 server:
-  port: ${SERVER_PORT:8080}
+  port: ${SERVER_PORT:8001}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    lease-renewal-interval-in-seconds: 30
+    lease-expiration-duration-in-seconds: 90
 
 security:
   jwt:
@@ -37,3 +47,12 @@ security:
 logging:
   level:
     root: ${LOG_LEVEL:INFO}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized

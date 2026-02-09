@@ -26,6 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -41,7 +42,85 @@ public class AuthServiceImpl implements IAuthService {
     private final AuthMapper authMapper;
     private final UserMapper userMapper;
 
+    @Override
+    @Transactional
+    public AuthResponse registerUser(RegisterUserRequest request) {
+        validateUniqueUser(request.getEmail(), request.getPhone());
 
+        User user = User.builder()
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .phone(request.getPhone())
+                .role(Role.USER)
+                .isVerified(false)
+                .build();
+
+        userRepository.save(user);
+        return authMapper.toAuthResponse(user);
+    }
+
+    @Override
+    @Transactional
+    public AuthResponse completeCustomerProfile(UUID userId, CompleteCustomerProfileRequest request) {
+        User user = getUser(userId);
+
+        if (user.getRole() != Role.USER) {
+            throw new InvalidOperationException("User already has a role assigned");
+        }
+
+        if (customerRepository.findByUserId(userId).isPresent()) {
+            throw new InvalidOperationException("Customer profile already exists");
+        }
+
+        user.setRole(Role.CUSTOMER);
+        userRepository.save(user);
+
+        Customer customer = new Customer();
+        customer.setUser(user);
+        customer.setFirstName(request.getFirstName());
+        customer.setLastName(request.getLastName());
+        customer.setWalletBalance(BigDecimal.ZERO);
+        customer.setTotalOrders(0);
+
+        customerRepository.save(customer);
+
+        return authMapper.toAuthResponse(user);
+    }
+
+    @Override
+    @Transactional
+    public AuthResponse completeDriverProfile(UUID userId, CompleteDriverProfileRequest request) {
+        User user = getUser(userId);
+
+        if (user.getRole() != Role.USER) {
+            throw new InvalidOperationException("User already has a role assigned");
+        }
+
+        if (driverRepository.findByUserId(userId).isPresent()) {
+            throw new InvalidOperationException("Driver profile already exists");
+        }
+
+        user.setRole(Role.DRIVER);
+        userRepository.save(user);
+
+        Driver driver = new Driver();
+        driver.setUserId(user.getId());
+        driver.setFirstName(request.getFirstName());
+        driver.setLastName(request.getLastName());
+        driver.setVehicleType(request.getVehicleType());
+        driver.setVehicleNumber(request.getVehicleNumber());
+        driver.setLicenseNumber(request.getLicenseNumber());
+        driver.setVerificationStatus(VerificationStatus.PENDING);
+        driver.setVerificationDocuments(request.getVerificationDocuments());
+        driver.setIsAvailable(false);
+        driver.setRating(BigDecimal.ZERO);
+        driver.setTotalDeliveries(0);
+        driver.setWalletBalance(BigDecimal.ZERO);
+
+        driverRepository.save(driver);
+
+        return authMapper.toAuthResponse(user);
+    }
 
     @Override
     @Transactional
@@ -63,7 +142,6 @@ public class AuthServiceImpl implements IAuthService {
 
         return authMapper.toAuthResponse(user);
     }
-
 
     @Override
     @Transactional
@@ -149,5 +227,10 @@ public class AuthServiceImpl implements IAuthService {
     private User getUserByEmail(String email) {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+    }
+
+    private User getUser(UUID userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId.toString()));
     }
 }

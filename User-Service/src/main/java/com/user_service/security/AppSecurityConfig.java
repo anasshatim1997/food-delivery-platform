@@ -42,6 +42,7 @@ public class AppSecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
+                                "/api/auth/v1/register",
                                 "/api/auth/v1/register/customer",
                                 "/api/auth/v1/register/driver",
                                 "/api/auth/v1/login",
@@ -54,6 +55,7 @@ public class AppSecurityConfig {
                                 "/swagger-ui.html",
                                 "/actuator/health"
                         ).permitAll()
+                        .requestMatchers("/api/auth/v1/complete-profile/**").authenticated()
                         .requestMatchers("/api/users/me").authenticated()
                         .requestMatchers("/api/users/me/customer").hasRole("CUSTOMER")
                         .requestMatchers("/api/users/me/driver").hasRole("DRIVER")

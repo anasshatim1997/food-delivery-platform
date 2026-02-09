@@ -4,7 +4,6 @@ import com.user_service.dto.response.ApiResponse;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.security.SignatureException;
-import jakarta.annotation.Nonnull;
 import jakarta.validation.ConstraintViolationException;
 import lombok.NonNull;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -197,11 +196,11 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Object>> handleMaxUploadSizeExceededException(
             MaxUploadSizeExceededException ex) {
         ApiResponse<Object> response = ApiResponse.<Object>builder()
-                .status(HttpStatus.PAYLOAD_TOO_LARGE.value())
+                .status(413)
                 .message("File size exceeds maximum allowed size: " + ex.getMessage())
                 .data(null)
                 .build();
-        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(response);
+        return ResponseEntity.status(413).body(response);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
@@ -216,7 +215,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<@NonNull  ApiResponse<Object>> handleGlobalException(
+    public ResponseEntity<@NonNull ApiResponse<Object>> handleGlobalException(
             Exception ex) {
         ApiResponse<Object> response = ApiResponse.<Object>builder()
                 .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
