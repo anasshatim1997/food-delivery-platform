@@ -47,11 +47,15 @@ jobs:
       - name: Run Tests
         working-directory: User-Service
         env:
-          DB_URL: ${{ secrets.DB_URL }}
-          DB_USERNAME: ${{ secrets.DB_USERNAME }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
-        run: mvn test
+        run: |
+          mvn test \
+            -Dspring.datasource.url=jdbc:postgresql://localhost:5432/user_db \
+            -Dspring.datasource.username=${{ secrets.DB_USERNAME }} \
+            -Dspring.datasource.password=${{ secrets.DB_PASSWORD }} \
+            -Dspring.datasource.driver-class-name=org.postgresql.Driver \
+            -Deureka.client.register-with-eureka=false \
+            -Deureka.client.fetch-registry=false
 
       - name: Upload Test Results
         if: always()
