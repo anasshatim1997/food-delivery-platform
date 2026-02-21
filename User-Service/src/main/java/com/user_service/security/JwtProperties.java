@@ -6,12 +6,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@ConfigurationProperties(prefix = "jwt")
+@ConfigurationProperties(prefix = "security.jwt")
 @Getter
 @Setter
 public class JwtProperties {
 
-    private String secretKey;
-    private Long accessTokenExpiration = 900000L;
-    private Long refreshTokenExpiration = 604800000L;
+    private String secret;
+    private Long expirationMs = 3600000L;
+    private Long refreshExpirationMs = 86400000L;
 }

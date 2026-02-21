@@ -55,8 +55,12 @@ public class AuthServiceImpl implements IAuthService {
                 .isVerified(false)
                 .build();
 
-        userRepository.save(user);
-        return authMapper.toAuthResponse(user);
+        log.info("Before save - user id: {}", user.getId());
+        user = userRepository.save(user);
+        log.info("After save - user id: {}", user.getId());
+        AuthResponse response = authMapper.toAuthResponse(user);
+        log.info("Auth response generated successfully");
+        return response;
     }
 
     @Override
@@ -129,7 +133,7 @@ public class AuthServiceImpl implements IAuthService {
 
         User user = userMapper.toUser(request, passwordEncoder.encode(request.getPassword()));
         user.setRole(Role.CUSTOMER);
-        userRepository.save(user);
+        user = userRepository.save(user);
 
         Customer customer = new Customer();
         customer.setUser(user);
@@ -150,7 +154,7 @@ public class AuthServiceImpl implements IAuthService {
 
         User user = userMapper.toUser(request, passwordEncoder.encode(request.getPassword()));
         user.setRole(Role.DRIVER);
-        userRepository.save(user);
+        user = userRepository.save(user);
 
         Driver driver = new Driver();
         driver.setUserId(user.getId());

@@ -35,20 +35,18 @@ public class JwtService {
         extraClaims.put("userId", user.getId().toString());
         extraClaims.put("role", user.getRole().name());
         extraClaims.put("type", "access");
-
-        return generateToken(extraClaims, user.getEmail(), jwtProperties.getAccessTokenExpiration());
+        return generateToken(extraClaims, user.getEmail(), jwtProperties.getExpirationMs());
     }
 
     public String generateRefreshToken(User user) {
         Map<String, Object> extraClaims = new HashMap<>();
         extraClaims.put("userId", user.getId().toString());
         extraClaims.put("type", "refresh");
-
-        return generateToken(extraClaims, user.getEmail(), jwtProperties.getRefreshTokenExpiration());
+        return generateToken(extraClaims, user.getEmail(), jwtProperties.getRefreshExpirationMs());
     }
 
     public Long getAccessTokenExpiration() {
-        return jwtProperties.getAccessTokenExpiration();
+        return jwtProperties.getExpirationMs();
     }
 
     public boolean isTokenValid(String token, UserDetails userDetails) {
@@ -88,7 +86,7 @@ public class JwtService {
     }
 
     private SecretKey getSignInKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(jwtProperties.getSecretKey());
+        byte[] keyBytes = Decoders.BASE64.decode(jwtProperties.getSecret());
         return Keys.hmacShaKeyFor(keyBytes);
     }
 }

@@ -30,7 +30,6 @@ public class GatewayRouteConfig {
                         .path("/api/auth/**")
                         .filters(f -> f
                                 .filter(loggingFilter.apply(new LoggingFilter.Config()))
-                                .filter(jwtAuthenticationFilter.apply(new JwtAuthenticationFilter.Config()))
                                 .filter(rateLimitFilter.apply(new RateLimitFilter.Config())))
                         .uri("lb://user-service"))
 

@@ -35,12 +35,13 @@ eureka:
     register-with-eureka: true
     fetch-registry: true
   instance:
+    prefer-ip-address: true
     lease-renewal-interval-in-seconds: 30
     lease-expiration-duration-in-seconds: 90
 
 security:
   jwt:
-    secret: ${JWT_SECRET}
+    secret: ${JWT_SECRET:Os3a29advToFkbd+wFsfPhIfdVtnghVP9IewK1sbDqCWX/7nCPgZIKx9qjeAw9ZEbxx0q6wQBoX52pr404zkQQ==}
     expiration-ms: ${JWT_EXPIRATION_MS:3600000}
     refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:86400000}
 
