@@ -1,9 +1,9 @@
 package com.user_service.service;
 
-
-import com.user_service.dto.response.OAuthUserInfo;
+import com.user_service.dto.response.AuthResponse;
+import com.user_service.enums.Role;
 
 public interface IOAuthService {
-    OAuthUserInfo verifyGoogleToken(String token);
-    OAuthUserInfo verifyFacebookToken(String token);
+    AuthResponse loginWithGoogle(String accessToken, Role targetRole);
+    AuthResponse loginWithFacebook(String accessToken, Role targetRole);
 }

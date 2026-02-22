@@ -48,6 +48,9 @@ public class Driver {
     @Column(name = "profile_image")
     private String profileImage;
 
+    @Column(name = "license_image")
+    private String licenseImage;
+
     @NotNull
     @Column(name = "vehicle_type", nullable = false)
     @Enumerated(EnumType.STRING)
@@ -93,7 +96,6 @@ public class Driver {
     private VerificationStatus verificationStatus;
 
     @JsonProperty("verificationDocuments")
-    @NotEmpty
     @ElementCollection
     @CollectionTable(name = "driver_verification_documents", joinColumns = @JoinColumn(name = "driver_id"))
     @MapKeyColumn(name = "document_type")

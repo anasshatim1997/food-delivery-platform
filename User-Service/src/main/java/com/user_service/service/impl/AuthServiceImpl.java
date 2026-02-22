@@ -2,21 +2,22 @@ package com.user_service.service.impl;
 
 import com.user_service.dto.request.*;
 import com.user_service.dto.response.AuthResponse;
+import com.user_service.dto.response.UserResponse;
 import com.user_service.entity.Customer;
 import com.user_service.entity.Driver;
 import com.user_service.entity.User;
 import com.user_service.enums.Role;
+import com.user_service.enums.Status;
 import com.user_service.enums.VerificationStatus;
-import com.user_service.exception.DuplicateResourceException;
-import com.user_service.exception.InvalidOperationException;
+import com.user_service.exception.OAuthException;
 import com.user_service.exception.ResourceNotFoundException;
-import com.user_service.mapper.AuthMapper;
-import com.user_service.mapper.UserMapper;
 import com.user_service.repository.CustomerRepository;
 import com.user_service.repository.DriverRepository;
 import com.user_service.repository.UserRepository;
 import com.user_service.security.JwtService;
 import com.user_service.service.IAuthService;
+import com.user_service.service.IOAuthService;
+import com.user_service.service.StorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -24,137 +25,69 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class AuthServiceImpl implements IAuthService {
 
     private final UserRepository userRepository;
     private final CustomerRepository customerRepository;
     private final DriverRepository driverRepository;
+    private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
-    private final JwtService jwtService;
-    private final AuthMapper authMapper;
-    private final UserMapper userMapper;
+    private final StorageService storageService;
+    private final IOAuthService oAuthService;
 
     @Override
     @Transactional
     public AuthResponse registerUser(RegisterUserRequest request) {
-        validateUniqueUser(request.getEmail(), request.getPhone());
+        assertEmailNotTaken(request.getEmail());
+        assertPhoneNotTaken(request.getPhone());
 
         User user = User.builder()
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .phone(request.getPhone())
-                .role(Role.USER)
+                .role(Role.CUSTOMER)
+                .status(Status.ACTIVE)
                 .isVerified(false)
                 .build();
 
-        log.info("Before save - user id: {}", user.getId());
-        user = userRepository.save(user);
-        log.info("After save - user id: {}", user.getId());
-        AuthResponse response = authMapper.toAuthResponse(user);
-        log.info("Auth response generated successfully");
-        return response;
-    }
-
-    @Override
-    @Transactional
-    public AuthResponse completeCustomerProfile(UUID userId, CompleteCustomerProfileRequest request) {
-        User user = getUser(userId);
-
-        if (user.getRole() != Role.USER) {
-            throw new InvalidOperationException("User already has a role assigned");
-        }
-
-        if (customerRepository.findByUserId(userId).isPresent()) {
-            throw new InvalidOperationException("Customer profile already exists");
-        }
-
-        user.setRole(Role.CUSTOMER);
         userRepository.save(user);
-
-        Customer customer = new Customer();
-        customer.setUser(user);
-        customer.setFirstName(request.getFirstName());
-        customer.setLastName(request.getLastName());
-        customer.setWalletBalance(BigDecimal.ZERO);
-        customer.setTotalOrders(0);
-
-        customerRepository.save(customer);
-
-        return authMapper.toAuthResponse(user);
-    }
-
-    @Override
-    @Transactional
-    public AuthResponse completeDriverProfile(UUID userId, CompleteDriverProfileRequest request) {
-        User user = getUser(userId);
-
-        if (user.getRole() != Role.USER) {
-            throw new InvalidOperationException("User already has a role assigned");
-        }
-
-        if (driverRepository.findByUserId(userId).isPresent()) {
-            throw new InvalidOperationException("Driver profile already exists");
-        }
-
-        user.setRole(Role.DRIVER);
-        userRepository.save(user);
-
-        Driver driver = new Driver();
-        driver.setUserId(user.getId());
-        driver.setFirstName(request.getFirstName());
-        driver.setLastName(request.getLastName());
-        driver.setVehicleType(request.getVehicleType());
-        driver.setVehicleNumber(request.getVehicleNumber());
-        driver.setLicenseNumber(request.getLicenseNumber());
-        driver.setVerificationStatus(VerificationStatus.PENDING);
-        driver.setVerificationDocuments(request.getVerificationDocuments());
-        driver.setIsAvailable(false);
-        driver.setRating(BigDecimal.ZERO);
-        driver.setTotalDeliveries(0);
-        driver.setWalletBalance(BigDecimal.ZERO);
-
-        driverRepository.save(driver);
-
-        return authMapper.toAuthResponse(user);
+        log.info("User registered: {} role={}", user.getId(), user.getRole());
+        return buildAuthResponse(user);
     }
 
     @Override
     @Transactional
     public AuthResponse registerCustomer(RegisterRequest request) {
-        validateUniqueUser(request.getEmail(), request.getPhone());
-
-        User user = userMapper.toUser(request, passwordEncoder.encode(request.getPassword()));
-        user.setRole(Role.CUSTOMER);
-        user = userRepository.save(user);
+        User user = createAndSaveUser(request, Role.CUSTOMER);
 
         Customer customer = new Customer();
+        customer.setId(user.getId());
         customer.setUser(user);
         customer.setFirstName(request.getFirstName());
         customer.setLastName(request.getLastName());
         customer.setWalletBalance(BigDecimal.ZERO);
         customer.setTotalOrders(0);
-
         customerRepository.save(customer);
 
-        return authMapper.toAuthResponse(user);
+        log.info("Customer registered: {}", user.getId());
+        return buildAuthResponse(user);
     }
 
     @Override
     @Transactional
     public AuthResponse registerDriver(RegisterRequest request) {
-        validateUniqueUser(request.getEmail(), request.getPhone());
-
-        User user = userMapper.toUser(request, passwordEncoder.encode(request.getPassword()));
-        user.setRole(Role.DRIVER);
-        user = userRepository.save(user);
+        User user = createAndSaveUser(request, Role.DRIVER);
 
         Driver driver = new Driver();
         driver.setUserId(user.getId());
@@ -163,78 +96,189 @@ public class AuthServiceImpl implements IAuthService {
         driver.setVehicleType(request.getVehicleType());
         driver.setVehicleNumber(request.getVehicleNumber());
         driver.setLicenseNumber(request.getLicenseNumber());
-        driver.setVerificationStatus(VerificationStatus.PENDING);
-        driver.setVerificationDocuments(request.getVerificationDocuments());
         driver.setIsAvailable(false);
         driver.setRating(BigDecimal.ZERO);
         driver.setTotalDeliveries(0);
         driver.setWalletBalance(BigDecimal.ZERO);
+        driver.setVerificationStatus(VerificationStatus.PENDING);
+        driver.setVerificationDocuments(new HashMap<>());
         driverRepository.save(driver);
 
-        return authMapper.toAuthResponse(user);
+        log.info("Driver registered: {}", user.getId());
+        return buildAuthResponse(user);
+    }
+
+    @Override
+    @Transactional
+    public AuthResponse completeCustomerProfile(UUID userId, CompleteCustomerProfileRequest request) {
+        User user = findUserOrThrow(userId);
+        Customer customer = findCustomerOrThrow(userId);
+
+        customer.setProfileImage(uploadIfPresent(request.getProfileImage(), "customers/profiles"));
+        customer.setFirstName(request.getFirstName());
+        customer.setLastName(request.getLastName());
+        customerRepository.save(customer);
+
+        log.info("Customer profile completed: {}", userId);
+        return buildAuthResponse(user);
+    }
+
+    @Override
+    @Transactional
+    public AuthResponse completeDriverProfile(UUID userId, CompleteDriverProfileRequest request) {
+        User user = findUserOrThrow(userId);
+        Driver driver = findDriverByUserIdOrThrow(userId);
+
+        driver.setProfileImage(uploadIfPresent(request.getProfileImage(), "drivers/profiles"));
+        driver.setLicenseImage(uploadIfPresent(request.getLicenseImage(), "drivers/licenses"));
+        driver.setFirstName(request.getFirstName());
+        driver.setLastName(request.getLastName());
+        driver.setVehicleType(request.getVehicleType());
+        driver.setVehicleNumber(request.getVehicleNumber());
+        driver.setLicenseNumber(request.getLicenseNumber());
+        driver.setVerificationStatus(VerificationStatus.PENDING);
+        driverRepository.save(driver);
+
+        log.info("Driver profile completed: {}", userId);
+        return buildAuthResponse(user);
     }
 
     @Override
     public AuthResponse login(LoginRequest request) {
         authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.getEmail(),
-                        request.getPassword()
-                )
+                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
         );
 
-        User user = getUserByEmail(request.getEmail());
-        return authMapper.toAuthResponse(user);
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        if (user.getStatus() == Status.SUSPENDED) {
+            throw new IllegalStateException("Your account has been suspended. Please contact support.");
+        }
+
+        return buildAuthResponse(user);
     }
 
     @Override
     public AuthResponse refreshToken(RefreshTokenRequest request) {
-        String refreshToken = request.getRefreshToken();
+        String token = request.getRefreshToken();
 
-        if (!jwtService.isRefreshToken(refreshToken)) {
-            throw new InvalidOperationException("Invalid refresh token");
+        if (!jwtService.isRefreshToken(token)) {
+            throw new IllegalArgumentException("Provided token is not a refresh token");
         }
 
-        String email = jwtService.extractUsername(refreshToken);
-        User user = getUserByEmail(email);
+        String email = jwtService.extractUsername(token);
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        return authMapper.toAuthResponse(user, refreshToken);
+        return buildAuthResponse(user);
     }
 
     @Override
-    @SuppressWarnings("unused")
     public AuthResponse oauthLogin(OAuthLoginRequest request) {
-        throw new UnsupportedOperationException("OAuth login not implemented yet");
+        return switch (request.getProvider().toUpperCase()) {
+            case "GOOGLE" -> oAuthService.loginWithGoogle(request.getAccessToken(), request.getTargetRole());
+            case "FACEBOOK" -> oAuthService.loginWithFacebook(request.getAccessToken(), request.getTargetRole());
+            default -> throw new OAuthException("Unsupported OAuth provider: " + request.getProvider());
+        };
     }
 
     @Override
-    @SuppressWarnings("unused")
+    @Transactional
     public void verifyEmail(String token) {
-        throw new UnsupportedOperationException("Email verification not implemented yet");
+        User user = userRepository.findByVerificationCode(token)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid or expired verification code"));
+
+        if (user.getVerificationCodeExpiresAt() != null
+                && user.getVerificationCodeExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Verification code has expired. Please request a new one.");
+        }
+
+        user.setIsVerified(true);
+        user.setVerificationCode(null);
+        user.setVerificationCodeExpiresAt(null);
+        userRepository.save(user);
+        log.info("Email verified for user: {}", user.getId());
     }
 
     @Override
-    @SuppressWarnings("unused")
+    @Transactional
     public void resendVerificationEmail(String email) {
-        throw new UnsupportedOperationException("Resend verification email not implemented yet");
-    }
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("No account found with email: " + email));
 
-    private void validateUniqueUser(String email, String phone) {
-        if (userRepository.findByEmail(email).isPresent()) {
-            throw new DuplicateResourceException("User", "email", email);
+        if (Boolean.TRUE.equals(user.getIsVerified())) {
+            throw new IllegalStateException("Email is already verified");
         }
-        if (phone != null && userRepository.findByPhone(phone).isPresent()) {
-            throw new DuplicateResourceException("User", "phone", phone);
+
+        user.setVerificationCode(UUID.randomUUID().toString());
+        user.setVerificationCodeExpiresAt(LocalDateTime.now().plusHours(24));
+        userRepository.save(user);
+
+        log.info("Verification email queued for: {}", email);
+    }
+
+    private User createAndSaveUser(RegisterRequest request, Role role) {
+        assertEmailNotTaken(request.getEmail());
+        assertPhoneNotTaken(request.getPhone());
+
+        return userRepository.save(User.builder()
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .phone(request.getPhone())
+                .role(role)
+                .status(Status.ACTIVE)
+                .isVerified(false)
+                .build());
+    }
+
+    private AuthResponse buildAuthResponse(User user) {
+        return AuthResponse.builder()
+                .accessToken(jwtService.generateAccessToken(user))
+                .refreshToken(jwtService.generateRefreshToken(user))
+                .user(UserResponse.builder()
+                        .id(user.getId())
+                        .email(user.getEmail())
+                        .phone(user.getPhone())
+                        .role(user.getRole())
+                        .status(user.getStatus())
+                        .isVerified(user.getIsVerified())
+                        .oauthProvider(user.getOauthProvider())
+                        .oauthProviderId(user.getOauthProviderId())
+                        .createdAt(user.getCreatedAt())
+                        .updatedAt(user.getUpdatedAt())
+                        .build())
+                .build();
+    }
+
+    private String uploadIfPresent(MultipartFile file, String path) {
+        return (file != null && !file.isEmpty()) ? storageService.uploadFile(file, path) : null;
+    }
+
+    private void assertEmailNotTaken(String email) {
+        if (userRepository.existsByEmail(email)) {
+            throw new IllegalArgumentException("Email is already registered");
         }
     }
 
-    private User getUserByEmail(String email) {
-        return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+    private void assertPhoneNotTaken(String phone) {
+        if (phone != null && userRepository.existsByPhone(phone)) {
+            throw new IllegalArgumentException("Phone number is already registered");
+        }
     }
 
-    private User getUser(UUID userId) {
+    private User findUserOrThrow(UUID userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId.toString()));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
+    }
+
+    private Customer findCustomerOrThrow(UUID userId) {
+        return customerRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Customer profile not found for user: " + userId));
+    }
+
+    private Driver findDriverByUserIdOrThrow(UUID userId) {
+        return driverRepository.findByUserId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Driver profile not found for user: " + userId));
     }
 }

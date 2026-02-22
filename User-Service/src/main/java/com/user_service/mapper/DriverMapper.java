@@ -9,13 +9,13 @@ import org.mapstruct.NullValuePropertyMappingStrategy;
 
 @Mapper(
         config = MapperConfigCentral.class,
-        nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE
-)
+        nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
 public interface DriverMapper {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "userId", ignore = true)
     @Mapping(target = "profileImage", ignore = true)
+    @Mapping(target = "licenseImage", ignore = true)
     @Mapping(target = "currentLat", ignore = true)
     @Mapping(target = "currentLng", ignore = true)
     @Mapping(target = "rating", ignore = true)

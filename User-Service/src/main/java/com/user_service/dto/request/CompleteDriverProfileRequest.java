@@ -1,19 +1,20 @@
 package com.user_service.dto.request;
+
 import com.user_service.enums.VehicleType;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.validator.constraints.URL;
-import java.util.Map;
+import org.springframework.web.multipart.MultipartFile;
+
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class CompleteDriverProfileRequest {
+
     @NotBlank(message = "First name is required")
     private String firstName;
 
@@ -29,6 +30,7 @@ public class CompleteDriverProfileRequest {
     @NotBlank(message = "License number is required")
     private String licenseNumber;
 
-    @NotEmpty(message = "Verification documents are required")
-    private Map<@NotBlank String, @NotBlank @URL String> verificationDocuments;
+    private MultipartFile profileImage;
+
+    private MultipartFile licenseImage;
 }
