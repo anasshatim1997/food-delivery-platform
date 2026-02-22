@@ -24,7 +24,6 @@ public class AuthMapper {
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .tokenType("Bearer")
-                .expiresIn(jwtService.getAccessTokenExpiration())
                 .user(userResponse)
                 .build();
     }
@@ -38,7 +37,6 @@ public class AuthMapper {
                 .accessToken(accessToken)
                 .refreshToken(existingRefreshToken)
                 .tokenType("Bearer")
-                .expiresIn(jwtService.getAccessTokenExpiration())
                 .user(userResponse)
                 .build();
     }
