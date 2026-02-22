@@ -90,6 +90,28 @@ public class AuthController {
                 ApiResponse.success(authService.oauthLogin(request), "OAuth login successful"));
     }
 
+    @PostMapping("/oauth/link")
+    public ResponseEntity<ApiResponse<AuthResponse>> linkOAuthProvider(
+            @Valid @RequestBody OAuthLoginRequest request,
+            Authentication auth) {
+        UUID userId = UUID.fromString(auth.getName());
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        authService.linkOAuthProvider(userId, request),
+                        "OAuth provider linked successfully"));
+    }
+
+    @PostMapping("/set-password")
+    public ResponseEntity<ApiResponse<AuthResponse>> setPassword(
+            @Valid @RequestBody SetPasswordRequest request,
+            Authentication auth) {
+        UUID userId = UUID.fromString(auth.getName());
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        authService.setPasswordForOAuthUser(userId, request),
+                        "Password set successfully"));
+    }
+
     @GetMapping("/verify-email")
     public ResponseEntity<ApiResponse<Void>> verifyEmail(@RequestParam String token) {
         authService.verifyEmail(token);
@@ -100,5 +122,28 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Void>> resendVerification(@RequestParam String email) {
         authService.resendVerificationEmail(email);
         return ResponseEntity.ok(ApiResponse.success(null, "Verification email sent"));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(@RequestParam String email) {
+        authService.forgotPassword(email);
+        return ResponseEntity.ok(ApiResponse.success(null,
+                "If an account with that email exists, a password reset link has been sent."));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request);
+        return ResponseEntity.ok(ApiResponse.success(null, "Password reset successfully"));
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<ApiResponse<Void>> changePassword(
+            @Valid @RequestBody ChangePasswordRequest request,
+            Authentication auth) {
+        UUID userId = UUID.fromString(auth.getName());
+        authService.changePassword(userId, request);
+        return ResponseEntity.ok(ApiResponse.success(null, "Password changed successfully"));
     }
 }

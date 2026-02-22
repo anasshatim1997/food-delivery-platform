@@ -19,10 +19,17 @@ spring:
   flyway:
     enabled: false
 
-  data:
-    redis:
-      host: localhost
-      port: 6379
+  mail:
+    host: localhost
+    port: 3025
+    username: test@test.com
+    password: test
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
 
 security:
   jwt:
@@ -30,8 +37,19 @@ security:
     expiration-ms: 3600000
     refresh-expiration-ms: 86400000
 
+app:
+  base-url: http://localhost:8001
+
 eureka:
   client:
     enabled: false
     register-with-eureka: false
     fetch-registry: false
+
+
+
+oauth:
+  google:
+    userinfo-url: http://localhost:9999/mock/google
+  facebook:
+    userinfo-url: http://localhost:9999/mock/facebook

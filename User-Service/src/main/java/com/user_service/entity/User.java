@@ -68,6 +68,16 @@ public class User {
     @Column(name = "oauth_provider_id")
     private String oauthProviderId;
 
+    @Column(name = "profile_completed", nullable = false)
+    @Builder.Default
+    private boolean profileCompleted = false;
+
+    @Column(name = "password_reset_token")
+    private String passwordResetToken;
+
+    @Column(name = "password_reset_token_expires_at")
+    private LocalDateTime passwordResetTokenExpiresAt;
+
     @CreatedDate
     @Column(name = "created_at", updatable = false, nullable = false)
     private LocalDateTime createdAt;

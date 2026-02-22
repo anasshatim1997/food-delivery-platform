@@ -10,10 +10,13 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.HexFormat;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -21,10 +24,18 @@ import java.util.UUID;
 @Service
 public class LocalStorageService implements StorageService {
 
-    private static final Set<String> ALLOWED_TYPES = Set.of(
+    private static final Set<String> ALLOWED_MIME_TYPES = Set.of(
             "image/jpeg", "image/jpg", "image/png", "image/webp"
     );
-    private static final long MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+
+    private static final Map<String, byte[]> MAGIC_BYTES = Map.of(
+            "image/jpeg", new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF},
+            "image/png",  new byte[]{(byte) 0x89, 0x50, 0x4E, 0x47},
+            "image/webp", new byte[]{0x52, 0x49, 0x46, 0x46}
+    );
+
+    private static final Set<String> ALLOWED_EXTENSIONS = Set.of("jpg", "jpeg", "png", "webp");
+    private static final long MAX_FILE_SIZE = 5 * 1024 * 1024;
 
     @Value("${storage.local.upload-dir:uploads}")
     private String uploadDir;
@@ -52,13 +63,17 @@ public class LocalStorageService implements StorageService {
         String originalFilename = StringUtils.cleanPath(
                 file.getOriginalFilename() != null ? file.getOriginalFilename() : "upload"
         );
-        String extension = getExtension(originalFilename);
+        String extension = getAndValidateExtension(originalFilename);
         String storedFilename = UUID.randomUUID() + "." + extension;
 
         try {
-            Path targetDir = rootLocation.resolve(folder);
-            Files.createDirectories(targetDir);
+            Path targetDir = rootLocation.resolve(folder).normalize();
 
+            if (!targetDir.startsWith(rootLocation)) {
+                throw new FileStorageException("Invalid upload folder path");
+            }
+
+            Files.createDirectories(targetDir);
             Path targetPath = targetDir.resolve(storedFilename);
             Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
 
@@ -66,6 +81,8 @@ public class LocalStorageService implements StorageService {
             log.info("File uploaded successfully: {}", fileUrl);
             return fileUrl;
 
+        } catch (FileStorageException e) {
+            throw e;
         } catch (IOException e) {
             log.error("Failed to store file {}: {}", storedFilename, e.getMessage());
             throw new FileStorageException("Failed to store file: " + originalFilename, e);
@@ -109,18 +126,44 @@ public class LocalStorageService implements StorageService {
         }
 
         String contentType = file.getContentType();
-        if (contentType == null || !ALLOWED_TYPES.contains(contentType.toLowerCase())) {
+        if (contentType == null || !ALLOWED_MIME_TYPES.contains(contentType.toLowerCase())) {
             throw new FileStorageException(
                     "Invalid file type. Only JPEG, PNG and WebP images are allowed"
             );
         }
+
+        validateMagicBytes(file, contentType.toLowerCase());
     }
 
-    private String getExtension(String filename) {
+    private void validateMagicBytes(MultipartFile file, String contentType) {
+        byte[] expectedMagic = MAGIC_BYTES.get(contentType.equals("image/jpg") ? "image/jpeg" : contentType);
+        if (expectedMagic == null) return;
+
+        try (InputStream is = file.getInputStream()) {
+            byte[] header = is.readNBytes(expectedMagic.length);
+            for (int i = 0; i < expectedMagic.length; i++) {
+                if (i >= header.length || header[i] != expectedMagic[i]) {
+                    throw new FileStorageException(
+                            "File content does not match the declared type. Possible file spoofing detected."
+                    );
+                }
+            }
+        } catch (FileStorageException e) {
+            throw e;
+        } catch (IOException e) {
+            throw new FileStorageException("Could not read file for validation", e);
+        }
+    }
+
+    private String getAndValidateExtension(String filename) {
         int dotIndex = filename.lastIndexOf('.');
         if (dotIndex < 0 || dotIndex == filename.length() - 1) {
-            return "bin";
+            throw new FileStorageException("File must have a valid extension");
         }
-        return filename.substring(dotIndex + 1).toLowerCase();
+        String ext = filename.substring(dotIndex + 1).toLowerCase();
+        if (!ALLOWED_EXTENSIONS.contains(ext)) {
+            throw new FileStorageException("Invalid file extension: " + ext);
+        }
+        return ext;
     }
 }

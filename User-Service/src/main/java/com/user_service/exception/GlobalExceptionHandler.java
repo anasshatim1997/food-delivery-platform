@@ -25,55 +25,101 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    private static final HttpStatus UNPROCESSABLE_ENTITY = HttpStatus.valueOf(422);
+    private static final HttpStatus PAYLOAD_TOO_LARGE    = HttpStatus.valueOf(413);
+
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiResponse<Object>> handleResourceNotFoundException(
             ResourceNotFoundException ex) {
-        ApiResponse<Object> response = ApiResponse.builder()
-                .status(HttpStatus.NOT_FOUND.value())
-                .message(ex.getMessage())
-                .data(null)
-                .build();
-        return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.builder()
+                        .status(HttpStatus.NOT_FOUND.value())
+                        .message(ex.getMessage())
+                        .data(null)
+                        .build());
     }
 
     @ExceptionHandler(DuplicateResourceException.class)
     public ResponseEntity<ApiResponse<Object>> handleDuplicateResourceException(
             DuplicateResourceException ex) {
-        ApiResponse<Object> response = ApiResponse.builder()
-                .status(HttpStatus.CONFLICT.value())
-                .message(ex.getMessage())
-                .data(null)
-                .build();
-        return new ResponseEntity<>(response, HttpStatus.CONFLICT);
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.<Object>builder()
+                        .status(HttpStatus.CONFLICT.value())
+                        .message(ex.getMessage())
+                        .data(null)
+                        .build());
     }
 
     @ExceptionHandler(InvalidOperationException.class)
     public ResponseEntity<ApiResponse<Object>> handleInvalidOperationException(
             InvalidOperationException ex) {
-        ApiResponse<Object> response = ApiResponse.builder()
-                .status(HttpStatus.BAD_REQUEST.value())
-                .message(ex.getMessage())
-                .data(null)
-                .build();
-        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        return ResponseEntity.status(UNPROCESSABLE_ENTITY)
+                .body(ApiResponse.<Object>builder()
+                        .status(UNPROCESSABLE_ENTITY.value())
+                        .message(ex.getMessage())
+                        .data(null)
+                        .build());
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Object>> handleIllegalArgumentException(
+            IllegalArgumentException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.<Object>builder()
+                        .status(HttpStatus.BAD_REQUEST.value())
+                        .message(ex.getMessage())
+                        .data(null)
+                        .build());
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ApiResponse<Object>> handleIllegalStateException(
+            IllegalStateException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.<Object>builder()
+                        .status(HttpStatus.CONFLICT.value())
+                        .message(ex.getMessage())
+                        .data(null)
+                        .build());
+    }
+
+    @ExceptionHandler(OAuthException.class)
+    public ResponseEntity<ApiResponse<Object>> handleOAuthException(
+            OAuthException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.<Object>builder()
+                        .status(HttpStatus.BAD_REQUEST.value())
+                        .message(ex.getMessage())
+                        .data(null)
+                        .build());
+    }
+
+    @ExceptionHandler(FileStorageException.class)
+    public ResponseEntity<ApiResponse<Object>> handleFileStorageException(
+            FileStorageException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.<Object>builder()
+                        .status(HttpStatus.BAD_REQUEST.value())
+                        .message(ex.getMessage())
+                        .data(null)
+                        .build());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Map<String, String>>> handleValidationExceptions(
             MethodArgumentNotValidException ex) {
         Map<String, String> errors = new HashMap<>();
-        ex.getBindingResult().getAllErrors().forEach((error) -> {
+        ex.getBindingResult().getAllErrors().forEach(error -> {
             String fieldName = ((FieldError) error).getField();
             String errorMessage = error.getDefaultMessage();
             errors.put(fieldName, errorMessage);
         });
-
-        ApiResponse<Map<String, String>> response = ApiResponse.<Map<String, String>>builder()
-                .status(HttpStatus.BAD_REQUEST.value())
-                .message("Validation failed")
-                .data(errors)
-                .build();
-        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.<Map<String, String>>builder()
+                        .status(HttpStatus.BAD_REQUEST.value())
+                        .message("Validation failed")
+                        .data(errors)
+                        .build());
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
@@ -85,143 +131,129 @@ public class GlobalExceptionHandler {
             String message = violation.getMessage();
             errors.put(propertyPath, message);
         });
-
-        ApiResponse<Map<String, String>> response = ApiResponse.<Map<String, String>>builder()
-                .status(HttpStatus.BAD_REQUEST.value())
-                .message("Validation constraint violation")
-                .data(errors)
-                .build();
-        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.<Map<String, String>>builder()
+                        .status(HttpStatus.BAD_REQUEST.value())
+                        .message("Validation constraint violation")
+                        .data(errors)
+                        .build());
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiResponse<Object>> handleDataIntegrityViolationException(
             DataIntegrityViolationException ex) {
         String message = "Data integrity violation";
-        String exceptionMessage = ex.getMessage();
-        if (exceptionMessage != null) {
-            if (exceptionMessage.contains("email")) {
+        String cause = ex.getMostSpecificCause().getMessage();
+        if (cause != null) {
+            if (cause.contains("uq_users_email") || cause.contains("email")) {
                 message = "Email already exists";
-            } else if (exceptionMessage.contains("phone")) {
+            } else if (cause.contains("uq_users_phone") || cause.contains("phone")) {
                 message = "Phone number already exists";
             }
         }
-
-        ApiResponse<Object> response = ApiResponse.<Object>builder()
-                .status(HttpStatus.CONFLICT.value())
-                .message(message)
-                .data(null)
-                .build();
-        return new ResponseEntity<>(response, HttpStatus.CONFLICT);
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.<Object>builder()
+                        .status(HttpStatus.CONFLICT.value())
+                        .message(message)
+                        .data(null)
+                        .build());
     }
 
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ApiResponse<Object>> handleBadCredentialsException(
             BadCredentialsException ex) {
-        ApiResponse<Object> response = ApiResponse.<Object>builder()
-                .status(HttpStatus.UNAUTHORIZED.value())
-                .message("Invalid email or password")
-                .data(null)
-                .build();
-        return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponse.<Object>builder()
+                        .status(HttpStatus.UNAUTHORIZED.value())
+                        .message("Invalid email or password")
+                        .data(null)
+                        .build());
     }
 
     @ExceptionHandler(DisabledException.class)
     public ResponseEntity<ApiResponse<Object>> handleDisabledException(
             DisabledException ex) {
-        ApiResponse<Object> response = ApiResponse.<Object>builder()
-                .status(HttpStatus.UNAUTHORIZED.value())
-                .message("Account is disabled or suspended")
-                .data(null)
-                .build();
-        return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponse.<Object>builder()
+                        .status(HttpStatus.UNAUTHORIZED.value())
+                        .message("Account is disabled or suspended")
+                        .data(null)
+                        .build());
     }
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiResponse<Object>> handleAccessDeniedException(
             AccessDeniedException ex) {
-        ApiResponse<Object> response = ApiResponse.<Object>builder()
-                .status(HttpStatus.FORBIDDEN.value())
-                .message("Access denied. You don't have permission to access this resource")
-                .data(null)
-                .build();
-        return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ApiResponse.<Object>builder()
+                        .status(HttpStatus.FORBIDDEN.value())
+                        .message("Access denied. You don't have permission to access this resource")
+                        .data(null)
+                        .build());
     }
 
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ApiResponse<Object>> handleAuthenticationException(
             AuthenticationException ex) {
-        ApiResponse<Object> response = ApiResponse.<Object>builder()
-                .status(HttpStatus.UNAUTHORIZED.value())
-                .message("Authentication failed: " + ex.getMessage())
-                .data(null)
-                .build();
-        return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponse.<Object>builder()
+                        .status(HttpStatus.UNAUTHORIZED.value())
+                        .message("Authentication failed: " + ex.getMessage())
+                        .data(null)
+                        .build());
     }
 
     @ExceptionHandler(ExpiredJwtException.class)
     public ResponseEntity<ApiResponse<Object>> handleExpiredJwtException(
             ExpiredJwtException ex) {
-        ApiResponse<Object> response = ApiResponse.<Object>builder()
-                .status(HttpStatus.UNAUTHORIZED.value())
-                .message("JWT token has expired")
-                .data(null)
-                .build();
-        return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponse.<Object>builder()
+                        .status(HttpStatus.UNAUTHORIZED.value())
+                        .message("JWT token has expired")
+                        .data(null)
+                        .build());
     }
 
     @ExceptionHandler(MalformedJwtException.class)
     public ResponseEntity<ApiResponse<Object>> handleMalformedJwtException(
             MalformedJwtException ex) {
-        ApiResponse<Object> response = ApiResponse.<Object>builder()
-                .status(HttpStatus.UNAUTHORIZED.value())
-                .message("Invalid JWT token format")
-                .data(null)
-                .build();
-        return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponse.<Object>builder()
+                        .status(HttpStatus.UNAUTHORIZED.value())
+                        .message("Invalid JWT token format")
+                        .data(null)
+                        .build());
     }
 
     @ExceptionHandler(SignatureException.class)
     public ResponseEntity<ApiResponse<Object>> handleSignatureException(
             SignatureException ex) {
-        ApiResponse<Object> response = ApiResponse.<Object>builder()
-                .status(HttpStatus.UNAUTHORIZED.value())
-                .message("Invalid JWT signature")
-                .data(null)
-                .build();
-        return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponse.<Object>builder()
+                        .status(HttpStatus.UNAUTHORIZED.value())
+                        .message("Invalid JWT signature")
+                        .data(null)
+                        .build());
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ApiResponse<Object>> handleMaxUploadSizeExceededException(
             MaxUploadSizeExceededException ex) {
-        ApiResponse<Object> response = ApiResponse.<Object>builder()
-                .status(413)
-                .message("File size exceeds maximum allowed size: " + ex.getMessage())
-                .data(null)
-                .build();
-        return ResponseEntity.status(413).body(response);
-    }
-
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ApiResponse<Object>> handleIllegalArgumentException(
-            IllegalArgumentException ex) {
-        ApiResponse<Object> response = ApiResponse.<Object>builder()
-                .status(HttpStatus.BAD_REQUEST.value())
-                .message(ex.getMessage())
-                .data(null)
-                .build();
-        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        return ResponseEntity.status(PAYLOAD_TOO_LARGE)
+                .body(ApiResponse.<Object>builder()
+                        .status(PAYLOAD_TOO_LARGE.value())
+                        .message("File size exceeds the maximum allowed limit")
+                        .data(null)
+                        .build());
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<@NonNull ApiResponse<Object>> handleGlobalException(
-            Exception ex) {
-        ApiResponse<Object> response = ApiResponse.<Object>builder()
-                .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
-                .message("An unexpected error occurred: " + ex.getMessage())
-                .data(null)
-                .build();
-        return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+    public ResponseEntity<@NonNull ApiResponse<Object>> handleGlobalException(Exception ex) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.<Object>builder()
+                        .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                        .message("An unexpected error occurred. Please try again later.")
+                        .data(null)
+                        .build());
     }
 }

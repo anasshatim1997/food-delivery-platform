@@ -21,8 +21,11 @@ public interface UserMapper {
     @Mapping(target = "status", ignore = true)
     @Mapping(target = "role", ignore = true)
     @Mapping(target = "isVerified", ignore = true)
+    @Mapping(target = "profileCompleted", ignore = true)
     @Mapping(target = "verificationCode", ignore = true)
     @Mapping(target = "verificationCodeExpiresAt", ignore = true)
+    @Mapping(target = "passwordResetToken", ignore = true)
+    @Mapping(target = "passwordResetTokenExpiresAt", ignore = true)
     @Mapping(target = "oauthProvider", ignore = true)
     @Mapping(target = "oauthProviderId", ignore = true)
     User toUser(RegisterRequest request, String encodedPassword);

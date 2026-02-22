@@ -30,12 +30,13 @@ import java.util.UUID;
 public class Driver {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "user_id")
     private UUID id;
 
-    @NotNull
-    @Column(name = "user_id", nullable = false, unique = true)
-    private UUID userId;
+    @OneToOne(fetch = FetchType.LAZY)
+    @MapsId
+    @JoinColumn(name = "user_id")
+    private User user;
 
     @NotBlank
     @Column(name = "first_name", nullable = false)

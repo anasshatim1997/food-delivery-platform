@@ -17,14 +17,17 @@ public interface AddressMapper {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "customer", ignore = true)
+    @Mapping(target = "isDefault", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     Address toAddress(CreateAddressRequest request);
 
+    @Mapping(target = "customerId", source = "customer.id")
     AddressResponse toAddressResponse(Address address);
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "customer", ignore = true)
+    @Mapping(target = "isDefault", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     void updateAddress(UpdateAddressRequest request, @MappingTarget Address address);

@@ -2,6 +2,7 @@ package com.user_service.security;
 
 import com.user_service.entity.User;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
@@ -35,6 +36,7 @@ public class JwtService {
         extraClaims.put("userId", user.getId().toString());
         extraClaims.put("role", user.getRole().name());
         extraClaims.put("type", "access");
+        extraClaims.put("profileCompleted", user.isProfileCompleted());
         return generateToken(extraClaims, user.getEmail(), jwtProperties.getExpirationMs());
     }
 
@@ -55,12 +57,21 @@ public class JwtService {
     }
 
     public boolean isRefreshToken(String token) {
-        String type = extractClaim(token, claims -> claims.get("type", String.class));
-        return "refresh".equals(type);
+        try {
+            String type = extractClaim(token, claims -> claims.get("type", String.class));
+            return "refresh".equals(type);
+        } catch (ExpiredJwtException e) {
+            String type = e.getClaims().get("type", String.class);
+            return "refresh".equals(type);
+        }
     }
 
-    private boolean isTokenExpired(String token) {
-        return extractExpiration(token).before(new Date());
+    public boolean isTokenExpired(String token) {
+        try {
+            return extractExpiration(token).before(new Date());
+        } catch (ExpiredJwtException e) {
+            return true;
+        }
     }
 
     private Date extractExpiration(String token) {

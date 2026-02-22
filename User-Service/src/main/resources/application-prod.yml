@@ -19,7 +19,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: validate
     show-sql: false
     properties:
       hibernate:
@@ -35,12 +35,24 @@ spring:
     baseline-on-migrate: false
     out-of-order: false
 
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+
 server:
   port: ${SERVER_PORT:8080}
-  servlet:
-    context-path: /api
-    session:
-      timeout: 30m
   compression:
     enabled: true
     min-response-size: 1024
@@ -63,6 +75,9 @@ security:
     expiration-ms: ${JWT_EXPIRATION_MS:3600000}
     refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:86400000}
 
+app:
+  base-url: ${APP_BASE_URL}
+
 logging:
   level:
     root: WARN
@@ -82,3 +97,10 @@ management:
   endpoint:
     health:
       show-details: when-authorized
+
+
+oauth:
+  google:
+    userinfo-url: ${OAUTH_GOOGLE_USERINFO_URL:https://www.googleapis.com/oauth2/v3/userinfo}
+  facebook:
+    userinfo-url: ${OAUTH_FACEBOOK_USERINFO_URL:https://graph.facebook.com/me?fields=id,name,email,first_name,last_name}

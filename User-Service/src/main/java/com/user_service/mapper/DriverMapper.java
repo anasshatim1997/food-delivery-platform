@@ -13,7 +13,7 @@ import org.mapstruct.NullValuePropertyMappingStrategy;
 public interface DriverMapper {
 
     @Mapping(target = "id", ignore = true)
-    @Mapping(target = "userId", ignore = true)
+    @Mapping(target = "user", ignore = true)
     @Mapping(target = "profileImage", ignore = true)
     @Mapping(target = "licenseImage", ignore = true)
     @Mapping(target = "currentLat", ignore = true)

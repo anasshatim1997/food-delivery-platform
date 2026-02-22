@@ -15,7 +15,8 @@ CREATE TABLE IF NOT EXISTS addresses (
     updated_at            TIMESTAMP      NOT NULL,
 
     CONSTRAINT pk_addresses          PRIMARY KEY (id),
-    CONSTRAINT fk_addresses_customer FOREIGN KEY (customer_id) REFERENCES customers (user_id) ON DELETE CASCADE
+    CONSTRAINT fk_addresses_customer FOREIGN KEY (customer_id) REFERENCES customers (user_id) ON DELETE CASCADE,
+    CONSTRAINT chk_addresses_label   CHECK (label IN ('Home', 'Work', 'Other'))
     );
 
 CREATE INDEX IF NOT EXISTS idx_addresses_customer ON addresses (customer_id);

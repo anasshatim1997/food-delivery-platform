@@ -15,6 +15,7 @@ import com.user_service.repository.CustomerRepository;
 import com.user_service.repository.DriverRepository;
 import com.user_service.repository.UserRepository;
 import com.user_service.security.JwtService;
+import com.user_service.service.IEmailService;
 import com.user_service.service.IOAuthService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,6 +44,7 @@ public class OAuthServiceImpl implements IOAuthService {
     private final JwtService jwtService;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+    private final IEmailService emailService;
 
     @Value("${oauth.google.userinfo-url:https://www.googleapis.com/oauth2/v3/userinfo}")
     private String googleUserInfoUrl;
@@ -64,17 +66,24 @@ public class OAuthServiceImpl implements IOAuthService {
         return processOAuthLogin(userInfo, "FACEBOOK", targetRole);
     }
 
-    private OAuthUserInfo fetchGoogleUserInfo(String accessToken) {
+    private JsonNode fetchUserInfoJson(String accessToken, String url) {
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.setBearerAuth(accessToken);
             HttpEntity<Void> request = new HttpEntity<>(headers);
 
-            ResponseEntity<String> response = restTemplate.exchange(
-                    googleUserInfoUrl, HttpMethod.GET, request, String.class
-            );
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, request, String.class);
+            return objectMapper.readTree(response.getBody());
+        } catch (RestClientException e) {
+            throw new OAuthException("Failed to reach OAuth provider: " + e.getMessage());
+        } catch (Exception e) {
+            throw new OAuthException("Failed to parse OAuth provider response: " + e.getMessage());
+        }
+    }
 
-            JsonNode json = objectMapper.readTree(response.getBody());
+    private OAuthUserInfo fetchGoogleUserInfo(String accessToken) {
+        try {
+            JsonNode json = fetchUserInfoJson(accessToken, googleUserInfoUrl);
 
             return OAuthUserInfo.builder()
                     .providerId(json.get("sub").asText())
@@ -85,6 +94,8 @@ public class OAuthServiceImpl implements IOAuthService {
                     .emailVerified(json.path("email_verified").asBoolean(false))
                     .build();
 
+        } catch (OAuthException e) {
+            throw e;
         } catch (RestClientException e) {
             log.error("Failed to fetch Google user info: {}", e.getMessage());
             throw new OAuthException("Invalid Google access token");
@@ -96,15 +107,7 @@ public class OAuthServiceImpl implements IOAuthService {
 
     private OAuthUserInfo fetchFacebookUserInfo(String accessToken) {
         try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.setBearerAuth(accessToken);
-            HttpEntity<Void> request = new HttpEntity<>(headers);
-
-            ResponseEntity<String> response = restTemplate.exchange(
-                    facebookUserInfoUrl, HttpMethod.GET, request, String.class
-            );
-
-            JsonNode json = objectMapper.readTree(response.getBody());
+            JsonNode json = fetchUserInfoJson(accessToken, facebookUserInfoUrl);
 
             if (json.has("error")) {
                 throw new OAuthException(
@@ -137,17 +140,21 @@ public class OAuthServiceImpl implements IOAuthService {
             throw new OAuthException("Email permission is required. Please grant email access and try again.");
         }
 
-        Optional<User> existingUser = userRepository.findByOauthProviderAndOauthProviderId(
+        Optional<User> existingByProvider = userRepository.findByOauthProviderAndOauthProviderId(
                 provider, userInfo.getProviderId()
         );
 
-        User user = existingUser.orElseGet(() -> createUserFromOAuth(userInfo, provider, targetRole));
+        boolean isNewUser = existingByProvider.isEmpty();
+        User user = existingByProvider.orElseGet(() -> createUserFromOAuth(userInfo, provider, targetRole));
 
         if (user.getStatus() == Status.SUSPENDED) {
             throw new OAuthException("Your account has been suspended. Please contact support.");
         }
 
-        boolean isNewUser = existingUser.isEmpty();
+        if (isNewUser) {
+            emailService.sendWelcomeEmail(user.getEmail(), userInfo.getFirstName());
+        }
+
         String accessToken = jwtService.generateAccessToken(user);
         String refreshToken = jwtService.generateRefreshToken(user);
 
@@ -157,6 +164,9 @@ public class OAuthServiceImpl implements IOAuthService {
                 .role(user.getRole())
                 .status(user.getStatus())
                 .isVerified(user.getIsVerified())
+                .profileCompleted(user.isProfileCompleted())
+                .oauthProvider(user.getOauthProvider())
+                .oauthProviderId(user.getOauthProviderId())
                 .build();
 
         return AuthResponse.builder()
@@ -169,7 +179,7 @@ public class OAuthServiceImpl implements IOAuthService {
     private User createUserFromOAuth(OAuthUserInfo userInfo, String provider, Role targetRole) {
         userRepository.findByEmail(userInfo.getEmail()).ifPresent(existing -> {
             throw new OAuthException(
-                    "An account with this email already exists. Please log in with your password instead."
+                    "An account with this email already exists. Please log in with your password or link " + provider + " from your account settings."
             );
         });
 
@@ -180,6 +190,7 @@ public class OAuthServiceImpl implements IOAuthService {
                 .oauthProvider(provider)
                 .oauthProviderId(userInfo.getProviderId())
                 .isVerified(userInfo.isEmailVerified())
+                .profileCompleted(true)
                 .build();
 
         user = userRepository.save(user);
@@ -208,7 +219,7 @@ public class OAuthServiceImpl implements IOAuthService {
 
     private void createDriverProfile(User user, OAuthUserInfo userInfo) {
         Driver driver = new Driver();
-        driver.setUserId(user.getId());
+        driver.setUser(user);
         driver.setFirstName(userInfo.getFirstName());
         driver.setLastName(userInfo.getLastName());
         driver.setProfileImage(userInfo.getProfileImage());

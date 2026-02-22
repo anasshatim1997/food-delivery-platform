@@ -19,4 +19,6 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByVerificationCode(String verificationCode);
 
     Optional<User> findByOauthProviderAndOauthProviderId(String oauthProvider, String oauthProviderId);
+
+    Optional<User> findByPasswordResetToken(String passwordResetToken);
 }
