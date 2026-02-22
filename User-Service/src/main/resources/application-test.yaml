@@ -1,6 +1,9 @@
 spring:
+  application:
+    name: user-service
+
   datasource:
-    url: jdbc:h2:mem:testdb
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
     driver-class-name: org.h2.Driver
     username: sa
     password:
@@ -8,16 +11,27 @@ spring:
   jpa:
     hibernate:
       ddl-auto: create-drop
+    database-platform: org.hibernate.dialect.H2Dialect
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
 
   flyway:
     enabled: false
 
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
 security:
   jwt:
-    secret: test-secret
+    secret: dGVzdC1zZWNyZXQta2V5LXRoYXQtaXMtbG9uZy1lbm91Z2gtZm9yLUhTNTEy
     expiration-ms: 3600000
     refresh-expiration-ms: 86400000
 
 eureka:
   client:
     enabled: false
+    register-with-eureka: false
+    fetch-registry: false
