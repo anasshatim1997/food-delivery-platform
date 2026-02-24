@@ -237,7 +237,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
-    public ResponseEntity<ApiResponse<Object>> handleMaxUploadSizeExceededException(
+    public ResponseEntity<@NonNull ApiResponse<Object>> handleMaxUploadSizeExceededException(
             MaxUploadSizeExceededException ex) {
         return ResponseEntity.status(PAYLOAD_TOO_LARGE)
                 .body(ApiResponse.<Object>builder()

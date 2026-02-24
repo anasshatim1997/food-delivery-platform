@@ -4,12 +4,22 @@ import jakarta.servlet.ReadListener;
 import jakarta.servlet.ServletInputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletRequestWrapper;
-import org.springframework.web.util.HtmlUtils;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.util.regex.Pattern;
 
 public class XSSRequestWrapper extends HttpServletRequestWrapper {
+
+    private static final Pattern[] XSS_PATTERNS = {
+            Pattern.compile("<script[^>]*>.*?</script>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL),
+            Pattern.compile("<[^>]+>",                   Pattern.CASE_INSENSITIVE),
+            Pattern.compile("javascript\\s*:",           Pattern.CASE_INSENSITIVE),
+            Pattern.compile("vbscript\\s*:",             Pattern.CASE_INSENSITIVE),
+            Pattern.compile("on\\w+\\s*=\\s*[\"'][^\"']*[\"']", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("eval\\s*\\([^)]*\\)",       Pattern.CASE_INSENSITIVE),
+            Pattern.compile("expression\\s*\\([^)]*\\)", Pattern.CASE_INSENSITIVE),
+    };
 
     private final byte[] cachedBody;
 
@@ -24,10 +34,10 @@ public class XSSRequestWrapper extends HttpServletRequestWrapper {
     public ServletInputStream getInputStream() {
         ByteArrayInputStream byteStream = new ByteArrayInputStream(cachedBody);
         return new ServletInputStream() {
-            @Override public boolean isFinished()                           { return byteStream.available() == 0; }
-            @Override public boolean isReady()                             { return true; }
-            @Override public void setReadListener(ReadListener listener)   {}
-            @Override public int read()                                    { return byteStream.read(); }
+            @Override public boolean isFinished()                         { return byteStream.available() == 0; }
+            @Override public boolean isReady()                           { return true; }
+            @Override public void setReadListener(ReadListener listener) {}
+            @Override public int read()                                  { return byteStream.read(); }
         };
     }
 
@@ -67,6 +77,11 @@ public class XSSRequestWrapper extends HttpServletRequestWrapper {
     }
 
     private static String sanitize(String value) {
-        return value == null ? null : HtmlUtils.htmlEscape(value, "UTF-8");
+        if (value == null) return null;
+        String result = value;
+        for (Pattern pattern : XSS_PATTERNS) {
+            result = pattern.matcher(result).replaceAll("");
+        }
+        return result;
     }
 }
