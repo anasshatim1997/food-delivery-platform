@@ -77,9 +77,18 @@ management:
     health:
       show-details: when-authorized
 
-
 oauth:
   google:
     userinfo-url: ${OAUTH_GOOGLE_USERINFO_URL:https://www.googleapis.com/oauth2/v3/userinfo}
+    token-info-url: ${OAUTH_GOOGLE_TOKEN_INFO_URL:https://oauth2.googleapis.com/tokeninfo}
+    client-id: ${OAUTH_GOOGLE_CLIENT_ID}
   facebook:
     userinfo-url: ${OAUTH_FACEBOOK_USERINFO_URL:https://graph.facebook.com/me?fields=id,name,email,first_name,last_name}
+    app-id: ${OAUTH_FACEBOOK_APP_ID}
+    app-secret: ${OAUTH_FACEBOOK_APP_SECRET}
+    debug-token-url: ${OAUTH_FACEBOOK_DEBUG_TOKEN_URL:https://graph.facebook.com/debug_token}
+
+storage:
+  local:
+    upload-dir: ${STORAGE_UPLOAD_DIR:uploads}
+    base-url: ${STORAGE_BASE_URL:http://localhost:8001/files}

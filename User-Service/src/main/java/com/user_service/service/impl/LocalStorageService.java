@@ -15,10 +15,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.util.HexFormat;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Service
@@ -36,6 +36,7 @@ public class LocalStorageService implements StorageService {
 
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of("jpg", "jpeg", "png", "webp");
     private static final long MAX_FILE_SIZE = 5 * 1024 * 1024;
+    private static final Pattern SAFE_FOLDER_PATTERN = Pattern.compile("^[a-zA-Z0-9_-]+$");
 
     @Value("${storage.local.upload-dir:uploads}")
     private String uploadDir;
@@ -58,6 +59,7 @@ public class LocalStorageService implements StorageService {
 
     @Override
     public String uploadFile(MultipartFile file, String folder) {
+        validateFolder(folder);
         validateFile(file);
 
         String originalFilename = StringUtils.cleanPath(
@@ -68,21 +70,20 @@ public class LocalStorageService implements StorageService {
 
         try {
             Path targetDir = rootLocation.resolve(folder).normalize();
-
             if (!targetDir.startsWith(rootLocation)) {
                 throw new FileStorageException("Invalid upload folder path");
             }
-
             Files.createDirectories(targetDir);
-            Path targetPath = targetDir.resolve(storedFilename);
+            Path targetPath = targetDir.resolve(storedFilename).normalize();
+            if (!targetPath.startsWith(targetDir)) {
+                throw new FileStorageException("Invalid target file path");
+            }
             Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
 
             String fileUrl = baseUrl + "/" + folder + "/" + storedFilename;
             log.info("File uploaded successfully: {}", fileUrl);
             return fileUrl;
 
-        } catch (FileStorageException e) {
-            throw e;
         } catch (IOException e) {
             log.error("Failed to store file {}: {}", storedFilename, e.getMessage());
             throw new FileStorageException("Failed to store file: " + originalFilename, e);
@@ -94,25 +95,78 @@ public class LocalStorageService implements StorageService {
         if (fileUrl == null || fileUrl.isBlank()) return;
 
         try {
-            String relativePath = fileUrl.replace(baseUrl + "/", "");
-            Path filePath = rootLocation.resolve(relativePath).normalize();
-
-            if (!filePath.startsWith(rootLocation)) {
-                log.warn("Attempted path traversal attack with URL: {}", fileUrl);
-                throw new FileStorageException("Invalid file path");
+            if (!fileUrl.startsWith(baseUrl + "/")) {
+                log.warn("File URL does not match base URL: {}", fileUrl);
+                throw new FileStorageException("Invalid file URL");
             }
 
+            String relativePath = fileUrl.substring((baseUrl + "/").length());
+
+            String[] parts = relativePath.split("/");
+            if (parts.length != 2) {
+                throw new FileStorageException("Invalid file URL structure");
+            }
+
+            String folder = parts[0];
+            String filename = parts[1];
+
+            validateFolder(folder);
+            validateStoredFilename(filename);
+
+            Path filePath = rootLocation.resolve(folder).resolve(filename).normalize();
+            if (!filePath.startsWith(rootLocation)) {
+                log.warn("Attempted path traversal with URL: {}", fileUrl);
+                throw new FileStorageException("Invalid file path");
+            }
             boolean deleted = Files.deleteIfExists(filePath);
             if (deleted) {
                 log.info("File deleted: {}", filePath);
             } else {
                 log.warn("File not found for deletion: {}", filePath);
             }
-        } catch (FileStorageException e) {
-            throw e;
         } catch (IOException e) {
             log.error("Failed to delete file {}: {}", fileUrl, e.getMessage());
             throw new FileStorageException("Failed to delete file", e);
+        }
+    }
+
+    public Path resolveFilePath(String folder, String filename) {
+        validateFolder(folder);
+        validateStoredFilename(filename);
+
+        Path filePath = rootLocation.resolve(folder).resolve(filename).normalize();
+        if (!filePath.startsWith(rootLocation)) {
+            throw new FileStorageException("Invalid file path");
+        }
+        return filePath;
+    }
+
+    private void validateFolder(String folder) {
+        if (folder == null || folder.isBlank()) {
+            throw new FileStorageException("Folder name must not be empty");
+        }
+        if (!SAFE_FOLDER_PATTERN.matcher(folder).matches()) {
+            throw new FileStorageException("Invalid folder name. Only alphanumeric characters, hyphens and underscores are allowed");
+        }
+    }
+
+    private void validateStoredFilename(String filename) {
+        if (filename == null || filename.isBlank()) {
+            throw new FileStorageException("Filename must not be empty");
+        }
+        int dotIndex = filename.lastIndexOf('.');
+        if (dotIndex < 1 || dotIndex == filename.length() - 1) {
+            throw new FileStorageException("Invalid stored filename");
+        }
+        String namePart = filename.substring(0, dotIndex);
+        String ext = filename.substring(dotIndex + 1).toLowerCase();
+        try {
+            UUID.fromString(namePart);
+        } catch (IllegalArgumentException e) {
+            throw new FileStorageException("Invalid stored filename format");
+        }
+        if (!ALLOWED_EXTENSIONS.contains(ext)) {
+            throw new FileStorageException("Invalid file extension in stored filename");
         }
     }
 
@@ -120,18 +174,13 @@ public class LocalStorageService implements StorageService {
         if (file == null || file.isEmpty()) {
             throw new FileStorageException("Cannot upload an empty file");
         }
-
         if (file.getSize() > MAX_FILE_SIZE) {
             throw new FileStorageException("File size exceeds the maximum limit of 5MB");
         }
-
         String contentType = file.getContentType();
         if (contentType == null || !ALLOWED_MIME_TYPES.contains(contentType.toLowerCase())) {
-            throw new FileStorageException(
-                    "Invalid file type. Only JPEG, PNG and WebP images are allowed"
-            );
+            throw new FileStorageException("Invalid file type. Only JPEG, PNG and WebP images are allowed");
         }
-
         validateMagicBytes(file, contentType.toLowerCase());
     }
 
@@ -148,8 +197,6 @@ public class LocalStorageService implements StorageService {
                     );
                 }
             }
-        } catch (FileStorageException e) {
-            throw e;
         } catch (IOException e) {
             throw new FileStorageException("Could not read file for validation", e);
         }

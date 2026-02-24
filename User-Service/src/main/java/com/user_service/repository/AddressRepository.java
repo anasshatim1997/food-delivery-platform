@@ -18,8 +18,6 @@ public interface AddressRepository extends JpaRepository<Address, UUID> {
 
     Optional<Address> findByIdAndCustomerId(UUID id, UUID customerId);
 
-    boolean existsByIdAndCustomerId(UUID id, UUID customerId);
-
     int countByCustomerId(UUID customerId);
 
     Optional<Address> findByCustomerIdAndIsDefaultTrue(UUID customerId);

@@ -17,6 +17,7 @@ import com.user_service.repository.UserRepository;
 import com.user_service.security.JwtService;
 import com.user_service.service.IEmailService;
 import com.user_service.service.IOAuthService;
+import lombok.Builder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,6 +27,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
@@ -49,12 +51,28 @@ public class OAuthServiceImpl implements IOAuthService {
     @Value("${oauth.google.userinfo-url:https://www.googleapis.com/oauth2/v3/userinfo}")
     private String googleUserInfoUrl;
 
+    @Value("${oauth.google.token-info-url:https://oauth2.googleapis.com/tokeninfo}")
+    private String googleTokenInfoUrl;
+
+    @Value("${oauth.google.client-id}")
+    private String googleClientId;
+
     @Value("${oauth.facebook.userinfo-url:https://graph.facebook.com/me?fields=id,name,email,first_name,last_name}")
     private String facebookUserInfoUrl;
+
+    @Value("${oauth.facebook.app-id}")
+    private String facebookAppId;
+
+    @Value("${oauth.facebook.app-secret}")
+    private String facebookAppSecret;
+
+    @Value("${oauth.facebook.debug-token-url:https://graph.facebook.com/debug_token}")
+    private String facebookDebugTokenUrl;
 
     @Override
     @Transactional
     public AuthResponse loginWithGoogle(String accessToken, Role targetRole) {
+        validateGoogleToken(accessToken);
         OAuthUserInfo userInfo = fetchGoogleUserInfo(accessToken);
         return processOAuthLogin(userInfo, "GOOGLE", targetRole);
     }
@@ -62,8 +80,79 @@ public class OAuthServiceImpl implements IOAuthService {
     @Override
     @Transactional
     public AuthResponse loginWithFacebook(String accessToken, Role targetRole) {
+        validateFacebookToken(accessToken);
         OAuthUserInfo userInfo = fetchFacebookUserInfo(accessToken);
         return processOAuthLogin(userInfo, "FACEBOOK", targetRole);
+    }
+
+    private void validateGoogleToken(String accessToken) {
+        try {
+            String url = googleTokenInfoUrl + "?access_token=" + accessToken;
+            ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+            JsonNode json = objectMapper.readTree(response.getBody());
+
+            if (json.has("error")) {
+                throw new OAuthException("Invalid Google token: " + json.path("error_description").asText());
+            }
+
+            String audience = json.path("aud").asText("");
+            if (!googleClientId.equals(audience)) {
+                log.warn("Google token audience mismatch. Expected: {}, Got: {}", googleClientId, audience);
+                throw new OAuthException("Google token was not issued for this application");
+            }
+
+            long expiresIn = json.path("expires_in").asLong(0);
+            if (expiresIn <= 0) {
+                throw new OAuthException("Google token has expired");
+            }
+
+            log.debug("Google token validated successfully for scope: {}", json.path("scope").asText());
+
+        } catch (OAuthException e) {
+            throw e;
+        } catch (HttpClientErrorException e) {
+            throw new OAuthException("Google token validation failed: " + e.getMessage());
+        } catch (Exception e) {
+            log.error("Error validating Google token: {}", e.getMessage());
+            throw new OAuthException("Failed to validate Google token");
+        }
+    }
+
+    private void validateFacebookToken(String accessToken) {
+        try {
+            String appToken = facebookAppId + "|" + facebookAppSecret;
+            String url = facebookDebugTokenUrl + "?input_token=" + accessToken + "&access_token=" + appToken;
+
+            ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+            JsonNode json = objectMapper.readTree(response.getBody());
+            JsonNode data = json.path("data");
+
+            if (!data.path("is_valid").asBoolean(false)) {
+                String reason = data.path("error").path("message").asText("Unknown reason");
+                throw new OAuthException("Invalid Facebook token: " + reason);
+            }
+
+            String tokenAppId = data.path("app_id").asText("");
+            if (!facebookAppId.equals(tokenAppId)) {
+                log.warn("Facebook token app_id mismatch. Expected: {}, Got: {}", facebookAppId, tokenAppId);
+                throw new OAuthException("Facebook token was not issued for this application");
+            }
+
+            long expiresAt = data.path("expires_at").asLong(0);
+            if (expiresAt > 0 && expiresAt < System.currentTimeMillis() / 1000) {
+                throw new OAuthException("Facebook token has expired");
+            }
+
+            log.debug("Facebook token validated successfully for user: {}", data.path("user_id").asText());
+
+        } catch (OAuthException e) {
+            throw e;
+        } catch (HttpClientErrorException e) {
+            throw new OAuthException("Facebook token validation failed: " + e.getMessage());
+        } catch (Exception e) {
+            log.error("Error validating Facebook token: {}", e.getMessage());
+            throw new OAuthException("Failed to validate Facebook token");
+        }
     }
 
     private JsonNode fetchUserInfoJson(String accessToken, String url) {
@@ -71,7 +160,6 @@ public class OAuthServiceImpl implements IOAuthService {
             HttpHeaders headers = new HttpHeaders();
             headers.setBearerAuth(accessToken);
             HttpEntity<Void> request = new HttpEntity<>(headers);
-
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, request, String.class);
             return objectMapper.readTree(response.getBody());
         } catch (RestClientException e) {
@@ -84,7 +172,6 @@ public class OAuthServiceImpl implements IOAuthService {
     private OAuthUserInfo fetchGoogleUserInfo(String accessToken) {
         try {
             JsonNode json = fetchUserInfoJson(accessToken, googleUserInfoUrl);
-
             return OAuthUserInfo.builder()
                     .providerId(json.get("sub").asText())
                     .email(json.get("email").asText())
@@ -93,12 +180,8 @@ public class OAuthServiceImpl implements IOAuthService {
                     .profileImage(json.path("picture").asText(null))
                     .emailVerified(json.path("email_verified").asBoolean(false))
                     .build();
-
         } catch (OAuthException e) {
             throw e;
-        } catch (RestClientException e) {
-            log.error("Failed to fetch Google user info: {}", e.getMessage());
-            throw new OAuthException("Invalid Google access token");
         } catch (Exception e) {
             log.error("Error parsing Google user info response: {}", e.getMessage());
             throw new OAuthException("Failed to process Google authentication");
@@ -108,13 +191,11 @@ public class OAuthServiceImpl implements IOAuthService {
     private OAuthUserInfo fetchFacebookUserInfo(String accessToken) {
         try {
             JsonNode json = fetchUserInfoJson(accessToken, facebookUserInfoUrl);
-
             if (json.has("error")) {
                 throw new OAuthException(
                         "Invalid Facebook access token: " + json.get("error").path("message").asText()
                 );
             }
-
             return OAuthUserInfo.builder()
                     .providerId(json.get("id").asText())
                     .email(json.path("email").asText(null))
@@ -123,12 +204,8 @@ public class OAuthServiceImpl implements IOAuthService {
                     .profileImage(null)
                     .emailVerified(false)
                     .build();
-
         } catch (OAuthException e) {
             throw e;
-        } catch (RestClientException e) {
-            log.error("Failed to fetch Facebook user info: {}", e.getMessage());
-            throw new OAuthException("Invalid Facebook access token");
         } catch (Exception e) {
             log.error("Error parsing Facebook user info response: {}", e.getMessage());
             throw new OAuthException("Failed to process Facebook authentication");
@@ -136,12 +213,12 @@ public class OAuthServiceImpl implements IOAuthService {
     }
 
     private AuthResponse processOAuthLogin(OAuthUserInfo userInfo, String provider, Role targetRole) {
-        if (userInfo.getEmail() == null || userInfo.getEmail().isBlank()) {
+        if (userInfo.email() == null || userInfo.email().isBlank()) {
             throw new OAuthException("Email permission is required. Please grant email access and try again.");
         }
 
         Optional<User> existingByProvider = userRepository.findByOauthProviderAndOauthProviderId(
-                provider, userInfo.getProviderId()
+                provider, userInfo.providerId()
         );
 
         boolean isNewUser = existingByProvider.isEmpty();
@@ -152,11 +229,8 @@ public class OAuthServiceImpl implements IOAuthService {
         }
 
         if (isNewUser) {
-            emailService.sendWelcomeEmail(user.getEmail(), userInfo.getFirstName());
+            emailService.sendWelcomeEmail(user.getEmail(), userInfo.firstName());
         }
-
-        String accessToken = jwtService.generateAccessToken(user);
-        String refreshToken = jwtService.generateRefreshToken(user);
 
         UserResponse userResponse = UserResponse.builder()
                 .id(user.getId())
@@ -170,26 +244,27 @@ public class OAuthServiceImpl implements IOAuthService {
                 .build();
 
         return AuthResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
+                .accessToken(jwtService.generateAccessToken(user))
+                .refreshToken(jwtService.generateRefreshToken(user))
                 .user(userResponse)
                 .build();
     }
 
     private User createUserFromOAuth(OAuthUserInfo userInfo, String provider, Role targetRole) {
-        userRepository.findByEmail(userInfo.getEmail()).ifPresent(existing -> {
+        userRepository.findByEmail(userInfo.email()).ifPresent(existing -> {
             throw new OAuthException(
-                    "An account with this email already exists. Please log in with your password or link " + provider + " from your account settings."
+                    "An account with this email already exists. Please log in with your password or link "
+                            + provider + " from your account settings."
             );
         });
 
         User user = User.builder()
-                .email(userInfo.getEmail())
+                .email(userInfo.email())
                 .role(targetRole)
                 .status(Status.ACTIVE)
                 .oauthProvider(provider)
-                .oauthProviderId(userInfo.getProviderId())
-                .isVerified(userInfo.isEmailVerified())
+                .oauthProviderId(userInfo.providerId())
+                .isVerified(userInfo.emailVerified())
                 .profileCompleted(true)
                 .build();
 
@@ -209,9 +284,9 @@ public class OAuthServiceImpl implements IOAuthService {
         Customer customer = new Customer();
         customer.setId(user.getId());
         customer.setUser(user);
-        customer.setFirstName(userInfo.getFirstName());
-        customer.setLastName(userInfo.getLastName());
-        customer.setProfileImage(userInfo.getProfileImage());
+        customer.setFirstName(userInfo.firstName());
+        customer.setLastName(userInfo.lastName());
+        customer.setProfileImage(userInfo.profileImage());
         customer.setWalletBalance(BigDecimal.ZERO);
         customer.setTotalOrders(0);
         customerRepository.save(customer);
@@ -220,9 +295,9 @@ public class OAuthServiceImpl implements IOAuthService {
     private void createDriverProfile(User user, OAuthUserInfo userInfo) {
         Driver driver = new Driver();
         driver.setUser(user);
-        driver.setFirstName(userInfo.getFirstName());
-        driver.setLastName(userInfo.getLastName());
-        driver.setProfileImage(userInfo.getProfileImage());
+        driver.setFirstName(userInfo.firstName());
+        driver.setLastName(userInfo.lastName());
+        driver.setProfileImage(userInfo.profileImage());
         driver.setIsAvailable(false);
         driver.setRating(BigDecimal.ZERO);
         driver.setTotalDeliveries(0);
@@ -232,14 +307,8 @@ public class OAuthServiceImpl implements IOAuthService {
         driverRepository.save(driver);
     }
 
-    @lombok.Builder
-    @lombok.Getter
-    private static class OAuthUserInfo {
-        private final String providerId;
-        private final String email;
-        private final String firstName;
-        private final String lastName;
-        private final String profileImage;
-        private final boolean emailVerified;
+    @Builder
+    private record OAuthUserInfo(String providerId, String email, String firstName, String lastName,
+                                 String profileImage, boolean emailVerified) {
     }
 }

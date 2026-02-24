@@ -46,10 +46,18 @@ eureka:
     register-with-eureka: false
     fetch-registry: false
 
-
-
 oauth:
   google:
     userinfo-url: http://localhost:9999/mock/google
+    token-info-url: http://localhost:9999/mock/google/tokeninfo
+    client-id: test-google-client-id
   facebook:
     userinfo-url: http://localhost:9999/mock/facebook
+    app-id: test-facebook-app-id
+    app-secret: test-facebook-app-secret
+    debug-token-url: http://localhost:9999/mock/facebook/debug_token
+
+storage:
+  local:
+    upload-dir: target/test-uploads
+    base-url: http://localhost:8001/files

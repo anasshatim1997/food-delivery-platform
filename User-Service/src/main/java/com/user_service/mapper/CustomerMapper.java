@@ -9,14 +9,12 @@ import org.mapstruct.NullValuePropertyMappingStrategy;
 
 @Mapper(
         config = MapperConfigCentral.class,
-        nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE
-)
+        nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
 public interface CustomerMapper {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "user", ignore = true)
     @Mapping(target = "defaultAddressId", ignore = true)
-    @Mapping(target = "addresses", ignore = true)
     @Mapping(target = "walletBalance", ignore = true)
     @Mapping(target = "totalOrders", ignore = true)
     @Mapping(target = "createdAt", ignore = true)

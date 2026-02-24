@@ -8,8 +8,10 @@ import com.user_service.dto.response.UserResponse;
 import com.user_service.entity.Customer;
 import com.user_service.entity.Driver;
 import com.user_service.entity.User;
+import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.ReportingPolicy;
 
 @Mapper(config = MapperConfigCentral.class)
 public interface UserMapper {
@@ -34,6 +36,7 @@ public interface UserMapper {
 
     UserProfileResponse toUserProfileResponse(User user);
 
+    @BeanMapping(resultType = CustomerProfileResponse.class)
     @Mapping(source = "user.id", target = "id")
     @Mapping(source = "user.email", target = "email")
     @Mapping(source = "user.phone", target = "phone")
@@ -51,6 +54,7 @@ public interface UserMapper {
     @Mapping(source = "customer.totalOrders", target = "totalOrders")
     CustomerProfileResponse toCustomerProfileResponse(User user, Customer customer);
 
+    @BeanMapping(resultType = DriverProfileResponse.class)
     @Mapping(source = "user.id", target = "id")
     @Mapping(source = "user.email", target = "email")
     @Mapping(source = "user.phone", target = "phone")

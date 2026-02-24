@@ -1,16 +1,11 @@
 package com.user_service.entity;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.user_service.enums.VehicleType;
 import com.user_service.enums.VerificationStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
-import org.hibernate.validator.constraints.URL;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
@@ -33,93 +28,82 @@ public class Driver {
     @Column(name = "user_id")
     private UUID id;
 
-    @OneToOne(fetch = FetchType.LAZY)
+    @OneToOne(fetch = FetchType.LAZY, optional = false)
     @MapsId
     @JoinColumn(name = "user_id")
     private User user;
 
     @NotBlank
-    @Column(name = "first_name", nullable = false)
     private String firstName;
 
     @NotBlank
-    @Column(name = "last_name", nullable = false)
     private String lastName;
 
-    @Column(name = "profile_image")
     private String profileImage;
-
-    @Column(name = "license_image")
     private String licenseImage;
 
     @NotNull
-    @Column(name = "vehicle_type", nullable = false)
     @Enumerated(EnumType.STRING)
     private VehicleType vehicleType;
 
     @NotBlank
-    @Column(name = "vehicle_number", nullable = false)
     private String vehicleNumber;
 
     @NotBlank
-    @Column(name = "license_number", nullable = false)
     private String licenseNumber;
 
-    @Column(name = "is_available", nullable = false)
+    @Column(nullable = false)
     private Boolean isAvailable = false;
 
-    @DecimalMin(value = "-90.0")
-    @DecimalMax(value = "90.0")
-    @Column(name = "current_lat")
+    @DecimalMin("-90.0")
+    @DecimalMax("90.0")
     private BigDecimal currentLat;
 
-    @DecimalMin(value = "-180.0")
-    @DecimalMax(value = "180.0")
-    @Column(name = "current_lng")
+    @DecimalMin("-180.0")
+    @DecimalMax("180.0")
     private BigDecimal currentLng;
 
-    @DecimalMin(value = "0.0")
-    @DecimalMax(value = "5.0")
-    @Column(name = "rating", nullable = false)
+    @DecimalMin("0.0")
+    @DecimalMax("5.0")
     private BigDecimal rating = BigDecimal.ZERO;
 
     @Min(0)
-    @Column(name = "total_deliveries", nullable = false)
     private Integer totalDeliveries = 0;
 
-    @DecimalMin(value = "0.0")
-    @Column(name = "wallet_balance", nullable = false)
+    @DecimalMin("0.0")
     private BigDecimal walletBalance = BigDecimal.ZERO;
 
     @NotNull
     @Enumerated(EnumType.STRING)
-    @Column(name = "verification_status", nullable = false)
     private VerificationStatus verificationStatus;
 
-    @JsonProperty("verificationDocuments")
     @ElementCollection
-    @CollectionTable(name = "driver_verification_documents", joinColumns = @JoinColumn(name = "driver_id"))
+    @CollectionTable(
+            name = "driver_verification_documents",
+            joinColumns = @JoinColumn(name = "driver_id")
+    )
     @MapKeyColumn(name = "document_type")
     @Column(name = "document_url")
-    private Map<@NotBlank String, @NotBlank @URL String> verificationDocuments;
+    private Map<String, String> verificationDocuments;
 
     @CreatedDate
-    @Column(name = "created_at", updatable = false, nullable = false)
+    @Column(updatable = false)
     private LocalDateTime createdAt;
 
     @Override
     public final boolean equals(Object o) {
         if (this == o) return true;
         if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
+        Class<?> oClass = o instanceof HibernateProxy
+                ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass()
+                : o.getClass();
+        if (getClass() != oClass) return false;
         Driver driver = (Driver) o;
-        return getId() != null && Objects.equals(getId(), driver.getId());
+        return id != null && Objects.equals(id, driver.id);
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return getClass().hashCode();
     }
 }
