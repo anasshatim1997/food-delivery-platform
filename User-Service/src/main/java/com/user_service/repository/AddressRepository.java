@@ -22,11 +22,11 @@ public interface AddressRepository extends JpaRepository<Address, UUID> {
 
     Optional<Address> findByCustomerIdAndIsDefaultTrue(UUID customerId);
 
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE Address a SET a.isDefault = false WHERE a.customer.id = :customerId AND a.id <> :excludeId")
     void clearDefaultExcept(@Param("customerId") UUID customerId, @Param("excludeId") UUID excludeId);
 
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE Address a SET a.isDefault = false WHERE a.customer.id = :customerId")
     void clearAllDefaults(@Param("customerId") UUID customerId);
 }
