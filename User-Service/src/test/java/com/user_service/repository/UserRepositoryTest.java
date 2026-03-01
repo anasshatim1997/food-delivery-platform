@@ -1,11 +1,13 @@
 package com.user_service.repository;
 
+import com.user_service.config.JpaConfig;
 import com.user_service.entity.User;
 import com.user_service.enums.Role;
 import com.user_service.enums.Status;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -20,6 +22,7 @@ import static org.assertj.core.api.Assertions.*;
         "spring.testcontainers.enabled=false"
 })
 @ActiveProfiles("test")
+@Import(JpaConfig.class)
 class UserRepositoryTest {
 
     @Autowired

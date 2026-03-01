@@ -1,5 +1,6 @@
 package com.user_service.repository;
 
+import com.user_service.config.JpaConfig;
 import com.user_service.entity.Address;
 import com.user_service.entity.Customer;
 import com.user_service.entity.User;
@@ -10,6 +11,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -26,6 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
 @ActiveProfiles("test")
+@Import(JpaConfig.class)
 class AddressRepositoryTest {
 
     @Autowired private AddressRepository addressRepository;
