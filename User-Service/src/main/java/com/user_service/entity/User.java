@@ -2,6 +2,7 @@ package com.user_service.entity;
 
 import com.user_service.enums.Role;
 import com.user_service.enums.Status;
+import com.user_service.validation.annotation.StrongPassword;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.*;
@@ -31,7 +32,7 @@ public class User {
     @Column(nullable = false, unique = true)
     private String email;
 
-    @Size(min = 8, max = 100)
+    @StrongPassword
     private String password;
 
     @Pattern(regexp = "^(\\+212|0)([67])\\d{8}$")

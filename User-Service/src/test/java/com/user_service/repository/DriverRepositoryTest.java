@@ -301,7 +301,7 @@ class DriverRepositoryTest {
     private User createAndSaveUser(String email) {
         User user = new User();
         user.setEmail(email);
-        user.setPassword("password123");
+        user.setPassword("SecurePass1!");
         user.setRole(Role.DRIVER);
         user.setStatus(Status.ACTIVE);
         user.setIsVerified(true);

@@ -61,7 +61,7 @@ public class AuthServiceImpl implements IAuthService {
 
         userRepository.save(user);
         emailService.sendVerificationEmail(user.getEmail(), verificationCode);
-        log.info("User registered: {} role={}", user.getId(), user.getRole());
+        log.info("User registered: userId={} email={} role={}", user.getId(), user.getEmail(), user.getRole());
         return buildAuthResponse(user);
     }
 
@@ -74,7 +74,7 @@ public class AuthServiceImpl implements IAuthService {
         userRepository.save(user);
         emailService.sendVerificationEmail(user.getEmail(), user.getVerificationCode());
         emailService.sendWelcomeEmail(user.getEmail(), request.getFirstName());
-        log.info("Customer registered: {}", user.getId());
+        log.info("Customer registered: userId={} email={}", user.getId(), user.getEmail());
         return buildAuthResponse(user);
     }
 
@@ -88,7 +88,7 @@ public class AuthServiceImpl implements IAuthService {
         userRepository.save(user);
         emailService.sendVerificationEmail(user.getEmail(), user.getVerificationCode());
         emailService.sendWelcomeEmail(user.getEmail(), request.getFirstName());
-        log.info("Driver registered: {}", user.getId());
+        log.info("Driver registered: userId={} email={}", user.getId(), user.getEmail());
         return buildAuthResponse(user);
     }
 
@@ -100,7 +100,7 @@ public class AuthServiceImpl implements IAuthService {
         user.setProfileCompleted(true);
         userRepository.save(user);
         emailService.sendWelcomeEmail(user.getEmail(), request.getFirstName());
-        log.info("Customer profile completed: {}", userId);
+        log.info("Customer profile completed: userId={}", userId);
         return buildAuthResponse(user);
     }
 
@@ -112,21 +112,28 @@ public class AuthServiceImpl implements IAuthService {
         user.setProfileCompleted(true);
         userRepository.save(user);
         emailService.sendWelcomeEmail(user.getEmail(), request.getFirstName());
-        log.info("Driver profile completed: {}", userId);
+        log.info("Driver profile completed: userId={}", userId);
         return buildAuthResponse(user);
     }
 
     @Override
     public AuthResponse login(LoginRequest request) {
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
-        );
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-        if (user.getStatus() == Status.SUSPENDED) {
-            throw new IllegalStateException("Your account has been suspended. Please contact support.");
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
+            );
+            User user = userRepository.findByEmail(request.getEmail())
+                    .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+            if (user.getStatus() == Status.SUSPENDED) {
+                log.warn("LOGIN_FAILED: Account suspended - userId={} email={}", user.getId(), request.getEmail());
+                throw new IllegalStateException("Your account has been suspended. Please contact support.");
+            }
+            log.info("LOGIN_SUCCESS: userId={} email={} role={}", user.getId(), user.getEmail(), user.getRole());
+            return buildAuthResponse(user);
+        } catch (BadCredentialsException e) {
+            log.warn("LOGIN_FAILED: Invalid credentials - email={}", request.getEmail());
+            throw e;
         }
-        return buildAuthResponse(user);
     }
 
     @Override
@@ -142,18 +149,28 @@ public class AuthServiceImpl implements IAuthService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         if (user.getStatus() == Status.SUSPENDED) {
+            log.warn("TOKEN_REFRESH_FAILED: Account suspended - userId={} email={}", user.getId(), email);
             throw new IllegalStateException("Your account has been suspended. Please contact support.");
         }
+        log.info("TOKEN_REFRESHED: userId={} email={}", user.getId(), email);
         return buildAuthResponse(user);
     }
 
     @Override
     public AuthResponse oauthLogin(OAuthLoginRequest request) {
-        return switch (request.getProvider().toUpperCase()) {
-            case "GOOGLE" -> oAuthService.loginWithGoogle(request.getAccessToken(), request.getTargetRole());
-            case "FACEBOOK" -> oAuthService.loginWithFacebook(request.getAccessToken(), request.getTargetRole());
-            default -> throw new OAuthException("Unsupported OAuth provider: " + request.getProvider());
-        };
+        try {
+            AuthResponse response = switch (request.getProvider().toUpperCase()) {
+                case "GOOGLE" -> oAuthService.loginWithGoogle(request.getAccessToken(), request.getTargetRole());
+                case "FACEBOOK" -> oAuthService.loginWithFacebook(request.getAccessToken(), request.getTargetRole());
+                default -> throw new OAuthException("Unsupported OAuth provider: " + request.getProvider());
+            };
+            log.info("OAUTH_LOGIN_SUCCESS: userId={} email={} provider={}",
+                    response.getUser().getId(), response.getUser().getEmail(), request.getProvider());
+            return response;
+        } catch (OAuthException e) {
+            log.warn("OAUTH_LOGIN_FAILED: provider={} reason={}", request.getProvider(), e.getMessage());
+            throw e;
+        }
     }
 
     @Override
@@ -169,7 +186,7 @@ public class AuthServiceImpl implements IAuthService {
         user.setVerificationCode(null);
         user.setVerificationCodeExpiresAt(null);
         userRepository.save(user);
-        log.info("Email verified for user: {}", user.getId());
+        log.info("Email verified: userId={} email={}", user.getId(), user.getEmail());
     }
 
     @Override
@@ -185,7 +202,7 @@ public class AuthServiceImpl implements IAuthService {
         user.setVerificationCodeExpiresAt(LocalDateTime.now().plusHours(24));
         userRepository.save(user);
         emailService.sendVerificationEmail(email, verificationCode);
-        log.info("Verification email resent to: {}", email);
+        log.info("Verification email resent: userId={} email={}", user.getId(), email);
     }
 
     @Override
@@ -203,7 +220,7 @@ public class AuthServiceImpl implements IAuthService {
         user.setPasswordResetTokenExpiresAt(LocalDateTime.now().plusHours(1));
         userRepository.save(user);
         emailService.sendPasswordResetEmail(email, resetToken);
-        log.info("Password reset email sent to: {}", email);
+        log.info("Password reset requested: userId={} email={}", user.getId(), email);
     }
 
     @Override
@@ -220,7 +237,7 @@ public class AuthServiceImpl implements IAuthService {
         user.setPasswordResetTokenExpiresAt(null);
         userRepository.save(user);
         emailService.sendPasswordChangedNotification(user.getEmail());
-        log.info("Password reset for user: {}", user.getId());
+        log.info("Password reset completed: userId={} email={}", user.getId(), user.getEmail());
     }
 
     @Override
@@ -231,12 +248,13 @@ public class AuthServiceImpl implements IAuthService {
             throw new IllegalStateException("No password is set for this account. Use 'Set Password' to add one.");
         }
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            log.warn("PASSWORD_CHANGE_FAILED: Incorrect current password - userId={} email={}", userId, user.getEmail());
             throw new BadCredentialsException("Current password is incorrect");
         }
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
         emailService.sendPasswordChangedNotification(user.getEmail());
-        log.info("Password changed for user: {}", userId);
+        log.info("Password changed: userId={} email={}", userId, user.getEmail());
     }
 
     @Override
@@ -265,7 +283,7 @@ public class AuthServiceImpl implements IAuthService {
         user.setOauthProvider(provider);
         user.setOauthProviderId(oauthResponse.getUser().getOauthProviderId());
         userRepository.save(user);
-        log.info("Linked {} OAuth to user: {}", provider, userId);
+        log.info("OAuth provider linked: userId={} email={} provider={}", userId, user.getEmail(), provider);
         return buildAuthResponse(user);
     }
 
@@ -282,7 +300,7 @@ public class AuthServiceImpl implements IAuthService {
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         userRepository.save(user);
         emailService.sendPasswordChangedNotification(user.getEmail());
-        log.info("Password set for OAuth user: {}", userId);
+        log.info("Password set for OAuth user: userId={} email={}", userId, user.getEmail());
         return buildAuthResponse(user);
     }
 

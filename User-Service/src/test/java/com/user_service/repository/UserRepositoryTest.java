@@ -33,7 +33,7 @@ class UserRepositoryTest {
     private User buildUser(String email) {
         return User.builder()
                 .email(email)
-                .password("securePass1")
+                .password("SecurePass1!") // Added special character
                 .phone(null)
                 .status(Status.ACTIVE)
                 .role(Role.USER)
@@ -47,7 +47,7 @@ class UserRepositoryTest {
                                String passwordResetToken) {
         return User.builder()
                 .email(email)
-                .password("securePass1")
+                .password("SecurePass1!") // Added special character
                 .phone(phone)
                 .status(Status.ACTIVE)
                 .role(Role.USER)

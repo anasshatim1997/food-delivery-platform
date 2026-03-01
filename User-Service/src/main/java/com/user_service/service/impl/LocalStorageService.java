@@ -145,6 +145,10 @@ public class LocalStorageService implements StorageService {
         if (folder == null || folder.isBlank()) {
             throw new FileStorageException("Folder name must not be empty");
         }
+        if (folder.contains("..") || folder.contains("/") || folder.contains("\\")) {
+            log.warn("Path traversal attempt detected in folder: {}", folder);
+            throw new FileStorageException("Invalid folder name: path traversal detected");
+        }
         if (!SAFE_FOLDER_PATTERN.matcher(folder).matches()) {
             throw new FileStorageException("Invalid folder name. Only alphanumeric characters, hyphens and underscores are allowed");
         }
@@ -153,6 +157,10 @@ public class LocalStorageService implements StorageService {
     private void validateStoredFilename(String filename) {
         if (filename == null || filename.isBlank()) {
             throw new FileStorageException("Filename must not be empty");
+        }
+        if (filename.contains("..") || filename.contains("/") || filename.contains("\\")) {
+            log.warn("Path traversal attempt detected in filename: {}", filename);
+            throw new FileStorageException("Invalid filename: path traversal detected");
         }
         int dotIndex = filename.lastIndexOf('.');
         if (dotIndex < 1 || dotIndex == filename.length() - 1) {

@@ -1,6 +1,8 @@
 package com.user_service.repository;
 
 import com.user_service.entity.Address;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -14,11 +16,13 @@ import java.util.UUID;
 @Repository
 public interface AddressRepository extends JpaRepository<Address, UUID> {
 
-    List<Address> findByCustomerIdOrderByIsDefaultDescCreatedAtDesc(UUID customerId);
+    Page<Address> findByCustomerIdOrderByIsDefaultDescCreatedAtDesc(UUID customerId, Pageable pageable);
 
     Optional<Address> findByIdAndCustomerId(UUID id, UUID customerId);
 
     int countByCustomerId(UUID customerId);
+
+    List<Address> findByCustomerIdOrderByIsDefaultDescCreatedAtDesc(UUID customerId);
 
     Optional<Address> findByCustomerIdAndIsDefaultTrue(UUID customerId);
 

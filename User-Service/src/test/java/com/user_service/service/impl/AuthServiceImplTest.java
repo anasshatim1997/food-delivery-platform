@@ -73,10 +73,6 @@ class AuthServiceImplTest {
         when(jwtService.generateRefreshToken(any(User.class))).thenReturn("refresh_token");
     }
 
-    // =========================================================================
-    // registerUser
-    // =========================================================================
-
     @Nested
     @DisplayName("registerUser")
     class RegisterUser {
@@ -84,7 +80,6 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("saves user, sends verification email, and returns tokens")
         void registerUser_success() {
-            // --- Arrange ---
             RegisterUserRequest request = new RegisterUserRequest();
             request.setEmail("new@mail.com");
             request.setPassword("Password1!");
@@ -95,10 +90,8 @@ class AuthServiceImplTest {
             when(passwordEncoder.encode("Password1!")).thenReturn("encoded");
             when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
-            // --- Act ---
             AuthResponse response = authService.registerUser(request);
 
-            // --- Assert ---
             assertThat(response.getAccessToken()).isEqualTo("access_token");
             verify(emailService).sendVerificationEmail(eq("new@mail.com"), anyString());
             verify(userRepository).save(any(User.class));
@@ -107,13 +100,11 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("throws when email is already taken")
         void registerUser_emailTaken() {
-            // --- Arrange ---
             RegisterUserRequest request = new RegisterUserRequest();
             request.setEmail("taken@mail.com");
             request.setPhone("0611111111");
             when(userRepository.existsByEmail("taken@mail.com")).thenReturn(true);
 
-            // --- Act & Assert ---
             assertThatThrownBy(() -> authService.registerUser(request))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("Email is already registered");
@@ -122,23 +113,17 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("throws when phone is already taken")
         void registerUser_phoneTaken() {
-            // --- Arrange ---
             RegisterUserRequest request = new RegisterUserRequest();
             request.setEmail("new@mail.com");
             request.setPhone("0600000000");
             when(userRepository.existsByEmail("new@mail.com")).thenReturn(false);
             when(userRepository.existsByPhone("0600000000")).thenReturn(true);
 
-            // --- Act & Assert ---
             assertThatThrownBy(() -> authService.registerUser(request))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("Phone number is already registered");
         }
     }
-
-    // =========================================================================
-    // registerCustomer
-    // =========================================================================
 
     @Nested
     @DisplayName("registerCustomer")
@@ -147,7 +132,6 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("creates user, customer profile, sends emails, and returns tokens")
         void registerCustomer_success() {
-            // --- Arrange ---
             RegisterRequest request = new RegisterRequest();
             request.setEmail("customer@mail.com");
             request.setPassword("Pass1!");
@@ -160,20 +144,14 @@ class AuthServiceImplTest {
             when(passwordEncoder.encode(any())).thenReturn("encoded");
             when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
-            // --- Act ---
             AuthResponse response = authService.registerCustomer(request);
 
-            // --- Assert ---
             assertThat(response.getAccessToken()).isEqualTo("access_token");
             verify(userProfileService).createCustomerProfile(any(User.class), eq("Alice"), eq("Smith"));
             verify(emailService).sendVerificationEmail(eq("customer@mail.com"), anyString());
             verify(emailService).sendWelcomeEmail(eq("customer@mail.com"), eq("Alice"));
         }
     }
-
-    // =========================================================================
-    // registerDriver
-    // =========================================================================
 
     @Nested
     @DisplayName("registerDriver")
@@ -182,7 +160,6 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("creates user, driver profile, sends emails, and returns tokens")
         void registerDriver_success() {
-            // --- Arrange ---
             RegisterRequest request = new RegisterRequest();
             request.setEmail("driver@mail.com");
             request.setPassword("Pass1!");
@@ -197,19 +174,13 @@ class AuthServiceImplTest {
             when(passwordEncoder.encode(any())).thenReturn("encoded");
             when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
-            // --- Act ---
             AuthResponse response = authService.registerDriver(request);
 
-            // --- Assert ---
             assertThat(response.getAccessToken()).isEqualTo("access_token");
             verify(userProfileService).createDriverProfile(any(User.class), eq("Bob"), eq("Jones"), any(), any(), any());
             verify(emailService).sendWelcomeEmail(eq("driver@mail.com"), eq("Bob"));
         }
     }
-
-    // =========================================================================
-    // login
-    // =========================================================================
 
     @Nested
     @DisplayName("login")
@@ -218,17 +189,14 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("authenticates and returns tokens for active user")
         void login_success() {
-            // --- Arrange ---
             LoginRequest request = new LoginRequest();
             request.setEmail("john@mail.com");
             request.setPassword("Password1!");
 
             when(userRepository.findByEmail("john@mail.com")).thenReturn(Optional.of(activeUser));
 
-            // --- Act ---
             AuthResponse response = authService.login(request);
 
-            // --- Assert ---
             assertThat(response.getAccessToken()).isEqualTo("access_token");
             verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
         }
@@ -236,14 +204,12 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("throws when user is suspended")
         void login_suspendedUser() {
-            // --- Arrange ---
             activeUser.setStatus(Status.SUSPENDED);
             LoginRequest request = new LoginRequest();
             request.setEmail("john@mail.com");
             request.setPassword("Password1!");
             when(userRepository.findByEmail("john@mail.com")).thenReturn(Optional.of(activeUser));
 
-            // --- Act & Assert ---
             assertThatThrownBy(() -> authService.login(request))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("suspended");
@@ -252,22 +218,16 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("throws when authentication manager rejects credentials")
         void login_badCredentials() {
-            // --- Arrange ---
             LoginRequest request = new LoginRequest();
             request.setEmail("john@mail.com");
             request.setPassword("wrong");
             doThrow(new BadCredentialsException("Bad credentials"))
                     .when(authenticationManager).authenticate(any());
 
-            // --- Act & Assert ---
             assertThatThrownBy(() -> authService.login(request))
                     .isInstanceOf(BadCredentialsException.class);
         }
     }
-
-    // =========================================================================
-    // refreshToken
-    // =========================================================================
 
     @Nested
     @DisplayName("refreshToken")
@@ -276,7 +236,6 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("issues new tokens for a valid refresh token")
         void refreshToken_success() {
-            // --- Arrange ---
             RefreshTokenRequest request = new RefreshTokenRequest();
             request.setRefreshToken("valid_refresh");
 
@@ -285,22 +244,18 @@ class AuthServiceImplTest {
             when(jwtService.extractUsername("valid_refresh")).thenReturn("john@mail.com");
             when(userRepository.findByEmail("john@mail.com")).thenReturn(Optional.of(activeUser));
 
-            // --- Act ---
             AuthResponse response = authService.refreshToken(request);
 
-            // --- Assert ---
             assertThat(response.getAccessToken()).isEqualTo("access_token");
         }
 
         @Test
         @DisplayName("throws when token is not a refresh token")
         void refreshToken_notRefreshToken() {
-            // --- Arrange ---
             RefreshTokenRequest request = new RefreshTokenRequest();
             request.setRefreshToken("access_token_not_refresh");
             when(jwtService.isRefreshToken("access_token_not_refresh")).thenReturn(false);
 
-            // --- Act & Assert ---
             assertThatThrownBy(() -> authService.refreshToken(request))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("not a refresh token");
@@ -309,22 +264,16 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("throws when refresh token is expired")
         void refreshToken_expired() {
-            // --- Arrange ---
             RefreshTokenRequest request = new RefreshTokenRequest();
             request.setRefreshToken("expired_refresh");
             when(jwtService.isRefreshToken("expired_refresh")).thenReturn(true);
             when(jwtService.isTokenExpired("expired_refresh")).thenReturn(true);
 
-            // --- Act & Assert ---
             assertThatThrownBy(() -> authService.refreshToken(request))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("expired");
         }
     }
-
-    // =========================================================================
-    // verifyEmail
-    // =========================================================================
 
     @Nested
     @DisplayName("verifyEmail")
@@ -333,16 +282,13 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("marks user as verified and clears the code")
         void verifyEmail_success() {
-            // --- Arrange ---
             activeUser.setIsVerified(false);
             activeUser.setVerificationCode("valid_code");
             activeUser.setVerificationCodeExpiresAt(LocalDateTime.now().plusHours(1));
             when(userRepository.findByVerificationCode("valid_code")).thenReturn(Optional.of(activeUser));
 
-            // --- Act ---
             authService.verifyEmail("valid_code");
 
-            // --- Assert ---
             assertThat(activeUser.getIsVerified()).isTrue();
             assertThat(activeUser.getVerificationCode()).isNull();
             verify(userRepository).save(activeUser);
@@ -351,12 +297,10 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("throws when verification code is expired")
         void verifyEmail_expiredCode() {
-            // --- Arrange ---
             activeUser.setVerificationCode("old_code");
             activeUser.setVerificationCodeExpiresAt(LocalDateTime.now().minusHours(1));
             when(userRepository.findByVerificationCode("old_code")).thenReturn(Optional.of(activeUser));
 
-            // --- Act & Assert ---
             assertThatThrownBy(() -> authService.verifyEmail("old_code"))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("expired");
@@ -365,19 +309,13 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("throws when verification code does not exist")
         void verifyEmail_invalidCode() {
-            // --- Arrange ---
             when(userRepository.findByVerificationCode("bad_code")).thenReturn(Optional.empty());
 
-            // --- Act & Assert ---
             assertThatThrownBy(() -> authService.verifyEmail("bad_code"))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("Invalid or expired");
         }
     }
-
-    // =========================================================================
-    // resendVerificationEmail
-    // =========================================================================
 
     @Nested
     @DisplayName("resendVerificationEmail")
@@ -386,14 +324,11 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("generates new code and resends email for unverified user")
         void resendVerification_success() {
-            // --- Arrange ---
             activeUser.setIsVerified(false);
             when(userRepository.findByEmail("john@mail.com")).thenReturn(Optional.of(activeUser));
 
-            // --- Act ---
             authService.resendVerificationEmail("john@mail.com");
 
-            // --- Assert ---
             verify(userRepository).save(activeUser);
             verify(emailService).sendVerificationEmail(eq("john@mail.com"), anyString());
         }
@@ -401,20 +336,14 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("throws when user is already verified")
         void resendVerification_alreadyVerified() {
-            // --- Arrange ---
             activeUser.setIsVerified(true);
             when(userRepository.findByEmail("john@mail.com")).thenReturn(Optional.of(activeUser));
 
-            // --- Act & Assert ---
             assertThatThrownBy(() -> authService.resendVerificationEmail("john@mail.com"))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("already verified");
         }
     }
-
-    // =========================================================================
-    // forgotPassword
-    // =========================================================================
 
     @Nested
     @DisplayName("forgotPassword")
@@ -423,13 +352,10 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("sets reset token and sends email")
         void forgotPassword_success() {
-            // --- Arrange ---
             when(userRepository.findByEmail("john@mail.com")).thenReturn(Optional.of(activeUser));
 
-            // --- Act ---
             authService.forgotPassword("john@mail.com");
 
-            // --- Assert ---
             assertThat(activeUser.getPasswordResetToken()).isNotNull();
             verify(emailService).sendPasswordResetEmail(eq("john@mail.com"), anyString());
         }
@@ -437,12 +363,10 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("throws for OAuth-only user with no password")
         void forgotPassword_oauthUser() {
-            // --- Arrange ---
             activeUser.setOauthProvider("GOOGLE");
             activeUser.setPassword(null);
             when(userRepository.findByEmail("john@mail.com")).thenReturn(Optional.of(activeUser));
 
-            // --- Act & Assert ---
             assertThatThrownBy(() -> authService.forgotPassword("john@mail.com"))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("GOOGLE");
@@ -451,18 +375,12 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("throws when email not found")
         void forgotPassword_emailNotFound() {
-            // --- Arrange ---
             when(userRepository.findByEmail("nobody@mail.com")).thenReturn(Optional.empty());
 
-            // --- Act & Assert ---
             assertThatThrownBy(() -> authService.forgotPassword("nobody@mail.com"))
                     .isInstanceOf(ResourceNotFoundException.class);
         }
     }
-
-    // =========================================================================
-    // resetPassword
-    // =========================================================================
 
     @Nested
     @DisplayName("resetPassword")
@@ -471,7 +389,6 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("resets password, clears token, and sends notification")
         void resetPassword_success() {
-            // --- Arrange ---
             activeUser.setPasswordResetToken("reset_token");
             activeUser.setPasswordResetTokenExpiresAt(LocalDateTime.now().plusMinutes(30));
             when(userRepository.findByPasswordResetToken("reset_token")).thenReturn(Optional.of(activeUser));
@@ -481,10 +398,8 @@ class AuthServiceImplTest {
             request.setToken("reset_token");
             request.setNewPassword("NewPass1!");
 
-            // --- Act ---
             authService.resetPassword(request);
 
-            // --- Assert ---
             assertThat(activeUser.getPassword()).isEqualTo("new_encoded");
             assertThat(activeUser.getPasswordResetToken()).isNull();
             verify(emailService).sendPasswordChangedNotification(activeUser.getEmail());
@@ -493,7 +408,6 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("throws when reset token is expired")
         void resetPassword_expiredToken() {
-            // --- Arrange ---
             activeUser.setPasswordResetToken("expired_token");
             activeUser.setPasswordResetTokenExpiresAt(LocalDateTime.now().minusMinutes(1));
             when(userRepository.findByPasswordResetToken("expired_token")).thenReturn(Optional.of(activeUser));
@@ -502,16 +416,11 @@ class AuthServiceImplTest {
             request.setToken("expired_token");
             request.setNewPassword("NewPass1!");
 
-            // --- Act & Assert ---
             assertThatThrownBy(() -> authService.resetPassword(request))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("expired");
         }
     }
-
-    // =========================================================================
-    // changePassword
-    // =========================================================================
 
     @Nested
     @DisplayName("changePassword")
@@ -520,7 +429,6 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("changes password and sends notification")
         void changePassword_success() {
-            // --- Arrange ---
             when(userRepository.findById(userId)).thenReturn(Optional.of(activeUser));
             when(passwordEncoder.matches("OldPass1!", "encoded_password")).thenReturn(true);
             when(passwordEncoder.encode("NewPass1!")).thenReturn("new_encoded");
@@ -529,10 +437,8 @@ class AuthServiceImplTest {
             request.setCurrentPassword("OldPass1!");
             request.setNewPassword("NewPass1!");
 
-            // --- Act ---
             authService.changePassword(userId, request);
 
-            // --- Assert ---
             assertThat(activeUser.getPassword()).isEqualTo("new_encoded");
             verify(emailService).sendPasswordChangedNotification(activeUser.getEmail());
         }
@@ -540,7 +446,6 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("throws when current password is wrong")
         void changePassword_wrongCurrentPassword() {
-            // --- Arrange ---
             when(userRepository.findById(userId)).thenReturn(Optional.of(activeUser));
             when(passwordEncoder.matches("WrongPass!", "encoded_password")).thenReturn(false);
 
@@ -548,7 +453,6 @@ class AuthServiceImplTest {
             request.setCurrentPassword("WrongPass!");
             request.setNewPassword("NewPass1!");
 
-            // --- Act & Assert ---
             assertThatThrownBy(() -> authService.changePassword(userId, request))
                     .isInstanceOf(BadCredentialsException.class)
                     .hasMessageContaining("incorrect");
@@ -557,7 +461,6 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("throws when user has no password set (OAuth-only account)")
         void changePassword_noPasswordSet() {
-            // --- Arrange ---
             activeUser.setPassword(null);
             when(userRepository.findById(userId)).thenReturn(Optional.of(activeUser));
 
@@ -565,16 +468,11 @@ class AuthServiceImplTest {
             request.setCurrentPassword("any");
             request.setNewPassword("NewPass1!");
 
-            // --- Act & Assert ---
             assertThatThrownBy(() -> authService.changePassword(userId, request))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("No password");
         }
     }
-
-    // =========================================================================
-    // oauthLogin
-    // =========================================================================
 
     @Nested
     @DisplayName("oauthLogin")
@@ -583,40 +481,55 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("delegates to oAuthService for GOOGLE provider")
         void oauthLogin_google() {
-            // --- Arrange ---
             OAuthLoginRequest request = new OAuthLoginRequest();
             request.setProvider("GOOGLE");
             request.setAccessToken("google_token");
             request.setTargetRole(Role.CUSTOMER);
 
-            AuthResponse expected = AuthResponse.builder().accessToken("google_access").build();
+            UserResponse userResponse = UserResponse.builder().id(userId).build();
+            AuthResponse expected = AuthResponse.builder()
+                    .accessToken("google_access")
+                    .user(userResponse)
+                    .build();
             when(oAuthService.loginWithGoogle("google_token", Role.CUSTOMER)).thenReturn(expected);
 
-            // --- Act ---
             AuthResponse response = authService.oauthLogin(request);
 
-            // --- Assert ---
             assertThat(response.getAccessToken()).isEqualTo("google_access");
+        }
+
+        @Test
+        @DisplayName("delegates to oAuthService for FACEBOOK provider")
+        void oauthLogin_facebook() {
+            OAuthLoginRequest request = new OAuthLoginRequest();
+            request.setProvider("FACEBOOK");
+            request.setAccessToken("facebook_token");
+            request.setTargetRole(Role.CUSTOMER);
+
+            UserResponse userResponse = UserResponse.builder().id(userId).build();
+            AuthResponse expected = AuthResponse.builder()
+                    .accessToken("facebook_access")
+                    .user(userResponse)
+                    .build();
+            when(oAuthService.loginWithFacebook("facebook_token", Role.CUSTOMER)).thenReturn(expected);
+
+            AuthResponse response = authService.oauthLogin(request);
+
+            assertThat(response.getAccessToken()).isEqualTo("facebook_access");
         }
 
         @Test
         @DisplayName("throws for unsupported OAuth provider")
         void oauthLogin_unsupportedProvider() {
-            // --- Arrange ---
             OAuthLoginRequest request = new OAuthLoginRequest();
-            request.setProvider("TWITTER");
+            request.setProvider("GITHUB");
             request.setAccessToken("token");
 
-            // --- Act & Assert ---
             assertThatThrownBy(() -> authService.oauthLogin(request))
                     .isInstanceOf(OAuthException.class)
                     .hasMessageContaining("Unsupported");
         }
     }
-
-    // =========================================================================
-    // setPasswordForOAuthUser
-    // =========================================================================
 
     @Nested
     @DisplayName("setPasswordForOAuthUser")
@@ -625,7 +538,6 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("sets password for OAuth user who has none")
         void setPassword_success() {
-            // --- Arrange ---
             activeUser.setPassword(null);
             activeUser.setOauthProvider("GOOGLE");
             when(userRepository.findById(userId)).thenReturn(Optional.of(activeUser));
@@ -634,10 +546,8 @@ class AuthServiceImplTest {
             SetPasswordRequest request = new SetPasswordRequest();
             request.setPassword("NewPass1!");
 
-            // --- Act ---
             AuthResponse response = authService.setPasswordForOAuthUser(userId, request);
 
-            // --- Assert ---
             assertThat(activeUser.getPassword()).isEqualTo("encoded_new");
             assertThat(response.getAccessToken()).isEqualTo("access_token");
             verify(emailService).sendPasswordChangedNotification(activeUser.getEmail());
@@ -646,13 +556,11 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("throws when user already has a password")
         void setPassword_alreadyHasPassword() {
-            // --- Arrange ---
             when(userRepository.findById(userId)).thenReturn(Optional.of(activeUser));
 
             SetPasswordRequest request = new SetPasswordRequest();
             request.setPassword("NewPass1!");
 
-            // --- Act & Assert ---
             assertThatThrownBy(() -> authService.setPasswordForOAuthUser(userId, request))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("already set");
@@ -661,7 +569,6 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("throws when user is not an OAuth user")
         void setPassword_notOAuthUser() {
-            // --- Arrange ---
             activeUser.setPassword(null);
             activeUser.setOauthProvider(null);
             when(userRepository.findById(userId)).thenReturn(Optional.of(activeUser));
@@ -669,7 +576,6 @@ class AuthServiceImplTest {
             SetPasswordRequest request = new SetPasswordRequest();
             request.setPassword("NewPass1!");
 
-            // --- Act & Assert ---
             assertThatThrownBy(() -> authService.setPasswordForOAuthUser(userId, request))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("OAuth");

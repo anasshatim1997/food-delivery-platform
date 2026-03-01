@@ -218,7 +218,7 @@ class CustomerRepositoryTest {
     private User createAndSaveUser(String email) {
         User user = new User();
         user.setEmail(email);
-        user.setPassword("password123");
+        user.setPassword("SecurePass1!");
         user.setRole(Role.CUSTOMER);
         user.setStatus(Status.ACTIVE);
         user.setIsVerified(true);

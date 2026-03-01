@@ -7,6 +7,9 @@ import com.user_service.dto.response.ApiResponse;
 import com.user_service.service.IAddressService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -39,6 +42,19 @@ public class AddressController {
         return ResponseEntity.ok(
                 ApiResponse.success(
                         addressService.getAddresses(customerId),
+                        "Addresses retrieved successfully"));
+    }
+
+    @GetMapping("/paginated")
+    public ResponseEntity<ApiResponse<Page<AddressResponse>>> getAddressesPaginated(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            Authentication auth) {
+        UUID customerId = UUID.fromString(auth.getName());
+        Pageable pageable = PageRequest.of(page, size);
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        addressService.getAddressesPaginated(customerId, pageable),
                         "Addresses retrieved successfully"));
     }
 
