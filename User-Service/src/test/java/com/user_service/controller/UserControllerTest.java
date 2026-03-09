@@ -119,7 +119,7 @@ class UserControllerTest {
         when(userService.getProfile(userId)).thenReturn(customerProfileResponse);
 
         // When & Then
-        mockMvc.perform(get("/api/users/me")
+        mockMvc.perform(get("/api/v1/users/me")
                         .principal(authentication))
                 .andDo(print())
                 .andExpect(status().isOk())
@@ -142,7 +142,7 @@ class UserControllerTest {
         when(userService.getProfile(userId)).thenReturn(driverProfileResponse);
 
         // When & Then
-        mockMvc.perform(get("/api/users/me")
+        mockMvc.perform(get("/api/v1/users/me")
                         .principal(authentication))
                 .andDo(print())
                 .andExpect(status().isOk())
@@ -171,7 +171,7 @@ class UserControllerTest {
         when(userService.getProfile(testUserId)).thenReturn(customerProfileResponse);
 
         // When & Then
-        mockMvc.perform(get("/api/users/me")
+        mockMvc.perform(get("/api/v1/users/me")
                         .principal(authentication))
                 .andDo(print())
                 .andExpect(status().isOk());
@@ -209,7 +209,7 @@ class UserControllerTest {
                 .thenReturn(updatedProfile);
 
         // When & Then
-        mockMvc.perform(patch("/api/users/me/customer")
+        mockMvc.perform(patch("/api/v1/users/me/customer")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
                         .principal(authentication))
@@ -251,7 +251,7 @@ class UserControllerTest {
                 .thenReturn(updatedProfile);
 
         // When & Then
-        mockMvc.perform(patch("/api/users/me/customer")
+        mockMvc.perform(patch("/api/v1/users/me/customer")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
                         .principal(authentication))
@@ -276,7 +276,7 @@ class UserControllerTest {
                 .thenReturn(customerProfileResponse);
 
         // When & Then
-        mockMvc.perform(patch("/api/users/me/customer")
+        mockMvc.perform(patch("/api/v1/users/me/customer")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
                         .principal(authentication))
@@ -324,7 +324,7 @@ class UserControllerTest {
                 .thenReturn(updatedProfile);
 
         // When & Then
-        mockMvc.perform(patch("/api/users/me/driver")
+        mockMvc.perform(patch("/api/v1/users/me/driver")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
                         .principal(authentication))
@@ -373,7 +373,7 @@ class UserControllerTest {
                 .thenReturn(updatedProfile);
 
         // When & Then
-        mockMvc.perform(patch("/api/users/me/driver")
+        mockMvc.perform(patch("/api/v1/users/me/driver")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
                         .principal(authentication))
@@ -418,7 +418,7 @@ class UserControllerTest {
                 .thenReturn(updatedProfile);
 
         // When & Then
-        mockMvc.perform(patch("/api/users/me/driver")
+        mockMvc.perform(patch("/api/v1/users/me/driver")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
                         .principal(authentication))
@@ -441,7 +441,7 @@ class UserControllerTest {
                 .thenReturn(driverProfileResponse);
 
         // When & Then
-        mockMvc.perform(patch("/api/users/me/driver")
+        mockMvc.perform(patch("/api/v1/users/me/driver")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
                         .principal(authentication))
@@ -469,7 +469,7 @@ class UserControllerTest {
         when(userService.uploadProfileImage(eq(userId), any())).thenReturn(imageUrl);
 
         // When & Then
-        mockMvc.perform(multipart("/api/users/me/profile-image")
+        mockMvc.perform(multipart("/api/v1/users/me/profile-image")
                         .file(image)
                         .principal(authentication))
                 .andDo(print())
@@ -497,7 +497,7 @@ class UserControllerTest {
         when(userService.uploadProfileImage(eq(userId), any())).thenReturn(imageUrl);
 
         // When & Then
-        mockMvc.perform(multipart("/api/users/me/profile-image")
+        mockMvc.perform(multipart("/api/v1/users/me/profile-image")
                         .file(image)
                         .principal(authentication))
                 .andDo(print())
@@ -524,7 +524,7 @@ class UserControllerTest {
         when(userService.uploadProfileImage(eq(userId), any())).thenReturn(imageUrl);
 
         // When & Then
-        mockMvc.perform(multipart("/api/users/me/profile-image")
+        mockMvc.perform(multipart("/api/v1/users/me/profile-image")
                         .file(image)
                         .principal(authentication))
                 .andDo(print())
@@ -553,7 +553,7 @@ class UserControllerTest {
         when(userService.uploadProfileImage(eq(testUserId), any())).thenReturn(imageUrl);
 
         // When & Then
-        mockMvc.perform(multipart("/api/users/me/profile-image")
+        mockMvc.perform(multipart("/api/v1/users/me/profile-image")
                         .file(image)
                         .principal(authentication))
                 .andDo(print())
@@ -580,14 +580,14 @@ class UserControllerTest {
         when(userService.getProfile(userId2)).thenReturn(driverProfileResponse);
 
         // When & Then - First user
-        mockMvc.perform(get("/api/users/me")
+        mockMvc.perform(get("/api/v1/users/me")
                         .principal(auth1))
                 .andExpect(status().isOk());
 
         verify(userService, times(1)).getProfile(userId1);
 
         // When & Then - Second user
-        mockMvc.perform(get("/api/users/me")
+        mockMvc.perform(get("/api/v1/users/me")
                         .principal(auth2))
                 .andExpect(status().isOk());
 

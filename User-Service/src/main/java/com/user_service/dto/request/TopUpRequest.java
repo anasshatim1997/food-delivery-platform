@@ -1,0 +1,27 @@
+package com.user_service.dto.request;
+
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class TopUpRequest {
+
+    @NotNull(message = "Amount is required")
+    @DecimalMin(value = "10.00", message = "Minimum top-up amount is 10.00 MAD")
+    @DecimalMax(value = "10000.00", message = "Maximum top-up amount is 10000.00 MAD")
+    private BigDecimal amount;
+
+    @NotBlank(message = "Payment method ID is required")
+    private String paymentMethodId;
+}

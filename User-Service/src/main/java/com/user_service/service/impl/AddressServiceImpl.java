@@ -152,7 +152,7 @@ public class AddressServiceImpl implements IAddressService {
 
     @Override
     @Transactional
-    public synchronized AddressResponse setDefaultAddress(UUID customerId, UUID addressId) {
+    public AddressResponse setDefaultAddress(UUID customerId, UUID addressId) {
         Customer customer = findCustomerOrThrow(customerId);
         Address address = findAddressOrThrow(customerId, addressId);
 
@@ -160,6 +160,7 @@ public class AddressServiceImpl implements IAddressService {
             return toResponse(address);
         }
 
+        addressRepository.lockAllByCustomerId(customerId);
         addressRepository.clearAllDefaults(customerId);
         addressRepository.flush();
 
@@ -169,7 +170,6 @@ public class AddressServiceImpl implements IAddressService {
         customer.setDefaultAddressId(address.getId());
         customerRepository.save(customer);
 
-        log.info("Default address set for customer {}: {}", customerId, addressId);
         return toResponse(address);
     }
 

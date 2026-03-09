@@ -5,7 +5,6 @@ import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.security.SignatureException;
 import jakarta.validation.ConstraintViolationException;
-import lombok.NonNull;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,7 +13,6 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
-import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -31,8 +29,7 @@ public class GlobalExceptionHandler {
     private static final HttpStatus PAYLOAD_TOO_LARGE    = HttpStatus.valueOf(413);
 
     @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<ApiResponse<Object>> handleResourceNotFoundException(
-            ResourceNotFoundException ex) {
+    public ResponseEntity<ApiResponse<Object>> handleResourceNotFoundException(ResourceNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.builder()
                         .status(HttpStatus.NOT_FOUND.value())
@@ -41,24 +38,30 @@ public class GlobalExceptionHandler {
                         .build());
     }
 
-
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<ApiResponse<Object>> handleNoResourceFound(NoResourceFoundException ex) {
-        return ResponseEntity
-                .status(HttpStatus.NOT_FOUND)
-                .body(ApiResponse.<Object>builder()
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.builder()
                         .status(HttpStatus.NOT_FOUND.value())
                         .message("Resource not found")
                         .data(null)
                         .build());
     }
 
+    @ExceptionHandler(InsufficientBalanceException.class)
+    public ResponseEntity<ApiResponse<Object>> handleInsufficientBalance(InsufficientBalanceException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.builder()
+                        .status(HttpStatus.BAD_REQUEST.value())
+                        .message(ex.getMessage())
+                        .data(null)
+                        .build());
+    }
 
     @ExceptionHandler(DuplicateResourceException.class)
-    public ResponseEntity<ApiResponse<Object>> handleDuplicateResourceException(
-            DuplicateResourceException ex) {
+    public ResponseEntity<ApiResponse<Object>> handleDuplicateResourceException(DuplicateResourceException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(ApiResponse.<Object>builder()
+                .body(ApiResponse.builder()
                         .status(HttpStatus.CONFLICT.value())
                         .message(ex.getMessage())
                         .data(null)
@@ -66,10 +69,9 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(InvalidOperationException.class)
-    public ResponseEntity<ApiResponse<Object>> handleInvalidOperationException(
-            InvalidOperationException ex) {
+    public ResponseEntity<ApiResponse<Object>> handleInvalidOperationException(InvalidOperationException ex) {
         return ResponseEntity.status(UNPROCESSABLE_ENTITY)
-                .body(ApiResponse.<Object>builder()
+                .body(ApiResponse.builder()
                         .status(UNPROCESSABLE_ENTITY.value())
                         .message(ex.getMessage())
                         .data(null)
@@ -77,10 +79,9 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ApiResponse<Object>> handleIllegalArgumentException(
-            IllegalArgumentException ex) {
+    public ResponseEntity<ApiResponse<Object>> handleIllegalArgumentException(IllegalArgumentException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.<Object>builder()
+                .body(ApiResponse.builder()
                         .status(HttpStatus.BAD_REQUEST.value())
                         .message(ex.getMessage())
                         .data(null)
@@ -88,10 +89,9 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(IllegalStateException.class)
-    public ResponseEntity<ApiResponse<Object>> handleIllegalStateException(
-            IllegalStateException ex) {
+    public ResponseEntity<ApiResponse<Object>> handleIllegalStateException(IllegalStateException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(ApiResponse.<Object>builder()
+                .body(ApiResponse.builder()
                         .status(HttpStatus.CONFLICT.value())
                         .message(ex.getMessage())
                         .data(null)
@@ -99,10 +99,9 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(OAuthException.class)
-    public ResponseEntity<ApiResponse<Object>> handleOAuthException(
-            OAuthException ex) {
+    public ResponseEntity<ApiResponse<Object>> handleOAuthException(OAuthException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.<Object>builder()
+                .body(ApiResponse.builder()
                         .status(HttpStatus.BAD_REQUEST.value())
                         .message(ex.getMessage())
                         .data(null)
@@ -110,10 +109,9 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(FileStorageException.class)
-    public ResponseEntity<ApiResponse<Object>> handleFileStorageException(
-            FileStorageException ex) {
+    public ResponseEntity<ApiResponse<Object>> handleFileStorageException(FileStorageException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.<Object>builder()
+                .body(ApiResponse.builder()
                         .status(HttpStatus.BAD_REQUEST.value())
                         .message(ex.getMessage())
                         .data(null)
@@ -121,8 +119,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponse<Map<String, String>>> handleValidationExceptions(
-            MethodArgumentNotValidException ex) {
+    public ResponseEntity<ApiResponse<Map<String, String>>> handleValidationExceptions(MethodArgumentNotValidException ex) {
         Map<String, String> errors = new HashMap<>();
         ex.getBindingResult().getAllErrors().forEach(error -> {
             String fieldName = ((FieldError) error).getField();
@@ -138,8 +135,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<ApiResponse<Map<String, String>>> handleConstraintViolationException(
-            ConstraintViolationException ex) {
+    public ResponseEntity<ApiResponse<Map<String, String>>> handleConstraintViolationException(ConstraintViolationException ex) {
         Map<String, String> errors = new HashMap<>();
         ex.getConstraintViolations().forEach(violation -> {
             String propertyPath = violation.getPropertyPath().toString();
@@ -155,8 +151,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<ApiResponse<Object>> handleDataIntegrityViolationException(
-            DataIntegrityViolationException ex) {
+    public ResponseEntity<ApiResponse<Object>> handleDataIntegrityViolationException(DataIntegrityViolationException ex) {
         String message = "Data integrity violation";
         String cause = ex.getMostSpecificCause().getMessage();
         if (cause != null) {
@@ -167,7 +162,7 @@ public class GlobalExceptionHandler {
             }
         }
         return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(ApiResponse.<Object>builder()
+                .body(ApiResponse.builder()
                         .status(HttpStatus.CONFLICT.value())
                         .message(message)
                         .data(null)
@@ -175,10 +170,9 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<ApiResponse<Object>> handleBadCredentialsException(
-            BadCredentialsException ex) {
+    public ResponseEntity<ApiResponse<Object>> handleBadCredentialsException(BadCredentialsException ex) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(ApiResponse.<Object>builder()
+                .body(ApiResponse.builder()
                         .status(HttpStatus.UNAUTHORIZED.value())
                         .message("Invalid email or password")
                         .data(null)
@@ -186,10 +180,9 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(DisabledException.class)
-    public ResponseEntity<ApiResponse<Object>> handleDisabledException(
-            DisabledException ex) {
+    public ResponseEntity<ApiResponse<Object>> handleDisabledException(DisabledException ex) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(ApiResponse.<Object>builder()
+                .body(ApiResponse.builder()
                         .status(HttpStatus.UNAUTHORIZED.value())
                         .message("Account is disabled or suspended")
                         .data(null)
@@ -197,10 +190,9 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ApiResponse<Object>> handleAccessDeniedException(
-            AccessDeniedException ex) {
+    public ResponseEntity<ApiResponse<Object>> handleAccessDeniedException(AccessDeniedException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(ApiResponse.<Object>builder()
+                .body(ApiResponse.builder()
                         .status(HttpStatus.FORBIDDEN.value())
                         .message("Access denied. You don't have permission to access this resource")
                         .data(null)
@@ -208,10 +200,9 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(AuthenticationException.class)
-    public ResponseEntity<ApiResponse<Object>> handleAuthenticationException(
-            AuthenticationException ex) {
+    public ResponseEntity<ApiResponse<Object>> handleAuthenticationException(AuthenticationException ex) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(ApiResponse.<Object>builder()
+                .body(ApiResponse.builder()
                         .status(HttpStatus.UNAUTHORIZED.value())
                         .message("Authentication failed: " + ex.getMessage())
                         .data(null)
@@ -219,10 +210,9 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(ExpiredJwtException.class)
-    public ResponseEntity<ApiResponse<Object>> handleExpiredJwtException(
-            ExpiredJwtException ex) {
+    public ResponseEntity<ApiResponse<Object>> handleExpiredJwtException(ExpiredJwtException ex) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(ApiResponse.<Object>builder()
+                .body(ApiResponse.builder()
                         .status(HttpStatus.UNAUTHORIZED.value())
                         .message("JWT token has expired")
                         .data(null)
@@ -230,10 +220,9 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(MalformedJwtException.class)
-    public ResponseEntity<ApiResponse<Object>> handleMalformedJwtException(
-            MalformedJwtException ex) {
+    public ResponseEntity<ApiResponse<Object>> handleMalformedJwtException(MalformedJwtException ex) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(ApiResponse.<Object>builder()
+                .body(ApiResponse.builder()
                         .status(HttpStatus.UNAUTHORIZED.value())
                         .message("Invalid JWT token format")
                         .data(null)
@@ -241,10 +230,9 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(SignatureException.class)
-    public ResponseEntity<ApiResponse<Object>> handleSignatureException(
-            SignatureException ex) {
+    public ResponseEntity<ApiResponse<Object>> handleSignatureException(SignatureException ex) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(ApiResponse.<Object>builder()
+                .body(ApiResponse.builder()
                         .status(HttpStatus.UNAUTHORIZED.value())
                         .message("Invalid JWT signature")
                         .data(null)
@@ -252,10 +240,9 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
-    public ResponseEntity<@NonNull ApiResponse<Object>> handleMaxUploadSizeExceededException(
-            MaxUploadSizeExceededException ex) {
+    public ResponseEntity<ApiResponse<Object>> handleMaxUploadSizeExceededException(MaxUploadSizeExceededException ex) {
         return ResponseEntity.status(PAYLOAD_TOO_LARGE)
-                .body(ApiResponse.<Object>builder()
+                .body(ApiResponse.builder()
                         .status(PAYLOAD_TOO_LARGE.value())
                         .message("File size exceeds the maximum allowed limit")
                         .data(null)
@@ -263,9 +250,9 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<@NonNull ApiResponse<Object>> handleGlobalException(Exception ex) {
+    public ResponseEntity<ApiResponse<Object>> handleGlobalException(Exception ex) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.<Object>builder()
+                .body(ApiResponse.builder()
                         .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
                         .message("An unexpected error occurred. Please try again later.")
                         .data(null)

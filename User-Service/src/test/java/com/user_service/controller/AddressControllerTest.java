@@ -113,7 +113,7 @@ class AddressControllerTest {
                 .thenReturn(addressResponse);
 
         // When & Then
-        mockMvc.perform(post("/api/users/v1/addresses")
+        mockMvc.perform(post("/api/v1/users/v1/addresses")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(createRequest))
                         .principal(authentication))

@@ -1,7 +1,7 @@
 package com.user_service.service.impl;
 
 import com.user_service.exception.FileStorageException;
-import com.user_service.service.StorageService;
+import com.user_service.service.IStorageService;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,7 +22,7 @@ import java.util.regex.Pattern;
 
 @Slf4j
 @Service
-public class LocalStorageService implements StorageService {
+public class LocalIStorageService implements IStorageService {
 
     private static final Set<String> ALLOWED_MIME_TYPES = Set.of(
             "image/jpeg", "image/jpg", "image/png", "image/webp"
@@ -181,6 +181,9 @@ public class LocalStorageService implements StorageService {
     private void validateFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new FileStorageException("Cannot upload an empty file");
+        }
+        if (file.getSize() > MAX_FILE_SIZE) {
+            throw new FileStorageException("File size exceeds maximum limit of 5MB");
         }
         if (file.getSize() > MAX_FILE_SIZE) {
             throw new FileStorageException("File size exceeds the maximum limit of 5MB");

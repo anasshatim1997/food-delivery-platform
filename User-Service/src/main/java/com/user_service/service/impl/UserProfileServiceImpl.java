@@ -10,8 +10,9 @@ import com.user_service.enums.VerificationStatus;
 import com.user_service.exception.ResourceNotFoundException;
 import com.user_service.repository.CustomerRepository;
 import com.user_service.repository.DriverRepository;
+import com.user_service.security.RoleAnnotations;
 import com.user_service.service.IUserProfileService;
-import com.user_service.service.StorageService;
+import com.user_service.service.IStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -25,11 +26,12 @@ import java.util.UUID;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+
 public class UserProfileServiceImpl implements IUserProfileService {
 
     private final CustomerRepository customerRepository;
     private final DriverRepository driverRepository;
-    private final StorageService storageService;
+    private final IStorageService IStorageService;
 
     @Override
     @Transactional
@@ -116,9 +118,9 @@ public class UserProfileServiceImpl implements IUserProfileService {
                 .orElseThrow(() -> new ResourceNotFoundException("Customer not found: " + userId));
         String oldImage = customer.getProfileImage();
         if (oldImage != null) {
-            storageService.deleteFile(oldImage);
+            IStorageService.deleteFile(oldImage);
         }
-        String imageUrl = storageService.uploadFile(file, "customers/profiles");
+        String imageUrl = IStorageService.uploadFile(file, "customers/profiles");
         customer.setProfileImage(imageUrl);
         customerRepository.save(customer);
         log.info("Profile image updated for customer: {}", userId);
@@ -132,9 +134,9 @@ public class UserProfileServiceImpl implements IUserProfileService {
                 .orElseThrow(() -> new ResourceNotFoundException("Driver not found: " + userId));
         String oldImage = driver.getProfileImage();
         if (oldImage != null) {
-            storageService.deleteFile(oldImage);
+            IStorageService.deleteFile(oldImage);
         }
-        String imageUrl = storageService.uploadFile(file, "drivers/profiles");
+        String imageUrl = IStorageService.uploadFile(file, "drivers/profiles");
         driver.setProfileImage(imageUrl);
         driverRepository.save(driver);
         log.info("Profile image updated for driver: {}", userId);
@@ -148,9 +150,9 @@ public class UserProfileServiceImpl implements IUserProfileService {
                 .orElseThrow(() -> new ResourceNotFoundException("Driver not found: " + userId));
         String oldImage = driver.getLicenseImage();
         if (oldImage != null) {
-            storageService.deleteFile(oldImage);
+            IStorageService.deleteFile(oldImage);
         }
-        String imageUrl = storageService.uploadFile(file, "drivers/licenses");
+        String imageUrl = IStorageService.uploadFile(file, "drivers/licenses");
         driver.setLicenseImage(imageUrl);
         driverRepository.save(driver);
         log.info("License image updated for driver: {}", userId);
@@ -158,6 +160,6 @@ public class UserProfileServiceImpl implements IUserProfileService {
     }
 
     private String uploadIfPresent(MultipartFile file, String path) {
-        return (file != null && !file.isEmpty()) ? storageService.uploadFile(file, path) : null;
+        return (file != null && !file.isEmpty()) ? IStorageService.uploadFile(file, path) : null;
     }
 }

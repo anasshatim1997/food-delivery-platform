@@ -32,7 +32,6 @@ public class User {
     @Column(nullable = false, unique = true)
     private String email;
 
-    @StrongPassword
     private String password;
 
     @Pattern(regexp = "^(\\+212|0)([67])\\d{8}$")

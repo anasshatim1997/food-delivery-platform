@@ -11,7 +11,7 @@ import com.user_service.enums.VerificationStatus;
 import com.user_service.exception.ResourceNotFoundException;
 import com.user_service.repository.CustomerRepository;
 import com.user_service.repository.DriverRepository;
-import com.user_service.service.StorageService;
+import com.user_service.service.IStorageService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -36,7 +36,7 @@ class UserProfileServiceImplTest {
 
     @Mock private CustomerRepository customerRepository;
     @Mock private DriverRepository driverRepository;
-    @Mock private StorageService storageService;
+    @Mock private IStorageService IStorageService;
 
     @InjectMocks
     private UserProfileServiceImpl userProfileService;
@@ -215,14 +215,14 @@ class UserProfileServiceImplTest {
             MockMultipartFile file = new MockMultipartFile("image", "new.jpg", "image/jpeg", new byte[]{1, 2, 3});
 
             when(customerRepository.findById(userId)).thenReturn(Optional.of(customer));
-            when(storageService.uploadFile(file, "customers/profiles")).thenReturn("http://example.com/new.jpg");
+            when(IStorageService.uploadFile(file, "customers/profiles")).thenReturn("http://example.com/new.jpg");
 
             // --- Act ---
             String result = userProfileService.uploadProfileImage(userId, file);
 
             // --- Assert ---
             assertThat(result).isEqualTo("http://example.com/new.jpg");
-            verify(storageService).deleteFile("http://example.com/old.jpg");
+            verify(IStorageService).deleteFile("http://example.com/old.jpg");
             assertThat(customer.getProfileImage()).isEqualTo("http://example.com/new.jpg");
             verify(customerRepository).save(customer);
         }
@@ -235,13 +235,13 @@ class UserProfileServiceImplTest {
             MockMultipartFile file = new MockMultipartFile("image", "photo.png", "image/png", new byte[]{1});
 
             when(customerRepository.findById(userId)).thenReturn(Optional.of(customer));
-            when(storageService.uploadFile(any(), any())).thenReturn("http://example.com/photo.png");
+            when(IStorageService.uploadFile(any(), any())).thenReturn("http://example.com/photo.png");
 
             // --- Act ---
             userProfileService.uploadProfileImage(userId, file);
 
             // --- Assert ---
-            verify(storageService, never()).deleteFile(any());
+            verify(IStorageService, never()).deleteFile(any());
         }
 
         @Test
@@ -273,7 +273,7 @@ class UserProfileServiceImplTest {
             MockMultipartFile file = new MockMultipartFile("image", "driver.jpg", "image/jpeg", new byte[]{1});
 
             when(driverRepository.findByUserId(userId)).thenReturn(Optional.of(driver));
-            when(storageService.uploadFile(file, "drivers/profiles")).thenReturn("http://example.com/driver.jpg");
+            when(IStorageService.uploadFile(file, "drivers/profiles")).thenReturn("http://example.com/driver.jpg");
 
             // --- Act ---
             String result = userProfileService.uploadDriverProfileImage(userId, file);
@@ -313,14 +313,14 @@ class UserProfileServiceImplTest {
             MockMultipartFile file = new MockMultipartFile("image", "license.jpg", "image/jpeg", new byte[]{1});
 
             when(driverRepository.findByUserId(userId)).thenReturn(Optional.of(driver));
-            when(storageService.uploadFile(file, "drivers/licenses")).thenReturn("http://example.com/new_license.jpg");
+            when(IStorageService.uploadFile(file, "drivers/licenses")).thenReturn("http://example.com/new_license.jpg");
 
             // --- Act ---
             String result = userProfileService.uploadDriverLicenseImage(userId, file);
 
             // --- Assert ---
             assertThat(result).isEqualTo("http://example.com/new_license.jpg");
-            verify(storageService).deleteFile("http://example.com/old_license.jpg");
+            verify(IStorageService).deleteFile("http://example.com/old_license.jpg");
             assertThat(driver.getLicenseImage()).isEqualTo("http://example.com/new_license.jpg");
         }
     }

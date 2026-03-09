@@ -3,7 +3,7 @@ package com.user_service.controller;
 import com.user_service.exception.FileStorageException;
 import com.user_service.security.JwtService;
 import com.user_service.security.XSSFilter;
-import com.user_service.service.impl.LocalStorageService;
+import com.user_service.service.impl.LocalIStorageService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -34,7 +34,7 @@ class FileControllerTest {
     private MockMvc mockMvc;
 
     @MockitoBean
-    private LocalStorageService localStorageService;
+    private LocalIStorageService localStorageService;
 
     @MockitoBean
     private JwtService jwtService;

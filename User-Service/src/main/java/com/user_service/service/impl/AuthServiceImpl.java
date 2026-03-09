@@ -96,6 +96,9 @@ public class AuthServiceImpl implements IAuthService {
     @Transactional
     public AuthResponse completeCustomerProfile(UUID userId, CompleteCustomerProfileRequest request) {
         User user = findUserOrThrow(userId);
+        if (user.isProfileCompleted()) {
+            throw new IllegalStateException("Profile already completed");
+        }
         userProfileService.completeCustomerProfile(userId, user, request);
         user.setProfileCompleted(true);
         userRepository.save(user);
@@ -196,6 +199,10 @@ public class AuthServiceImpl implements IAuthService {
                 .orElseThrow(() -> new ResourceNotFoundException("No account found with email: " + email));
         if (Boolean.TRUE.equals(user.getIsVerified())) {
             throw new IllegalStateException("Email is already verified");
+        }
+        if (user.getVerificationCodeExpiresAt() != null &&
+                user.getVerificationCodeExpiresAt().isAfter(LocalDateTime.now().minusMinutes(1))) {
+            throw new IllegalStateException("Please wait before requesting another verification email");
         }
         String verificationCode = UUID.randomUUID().toString();
         user.setVerificationCode(verificationCode);

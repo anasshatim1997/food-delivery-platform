@@ -1,7 +1,7 @@
 package com.user_service.controller;
 
 import com.user_service.exception.FileStorageException;
-import com.user_service.service.impl.LocalStorageService;
+import com.user_service.service.impl.LocalIStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
@@ -24,7 +24,7 @@ import java.nio.file.Path;
 @RequiredArgsConstructor
 public class FileController {
 
-    private final LocalStorageService localStorageService;
+    private final LocalIStorageService localStorageService;
 
     @GetMapping("/{folder}/{subfolder}/{filename:.+}")
     public ResponseEntity<Resource> serveFile(
