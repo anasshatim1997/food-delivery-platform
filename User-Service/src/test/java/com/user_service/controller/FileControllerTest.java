@@ -1,217 +1,136 @@
 package com.user_service.controller;
 
 import com.user_service.exception.FileStorageException;
-import com.user_service.security.JwtService;
-import com.user_service.security.XSSFilter;
 import com.user_service.service.impl.LocalIStorageService;
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.core.io.ByteArrayResource;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.io.Resource;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 
+import java.net.MalformedURLException;
+import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-import static org.mockito.ArgumentMatchers.*;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(FileController.class)
+@ExtendWith(MockitoExtension.class)
 class FileControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
-
-    @MockitoBean
+    @Mock
     private LocalIStorageService localStorageService;
 
-    @MockitoBean
-    private JwtService jwtService;
+    @Mock
+    private Resource resource;
 
-    @MockitoBean
-    private UserDetailsService userDetailsService;
-
-    @MockitoBean
-    private XSSFilter xssFilter;
-
-    @BeforeEach
-    void setUp() throws Exception {
-        // Arrange: make XSSFilter pass-through so it doesn't swallow requests
-        doAnswer(invocation -> {
-            HttpServletRequest req = invocation.getArgument(0);
-            HttpServletResponse res = invocation.getArgument(1);
-            FilterChain chain = invocation.getArgument(2);
-            chain.doFilter(req, res);
-            return null;
-        }).when(xssFilter).doFilter(any(), any(), any());
-    }
-
-    // ─── Serve file (2-segment path): /files/{folder}/{filename} ─────────────
+    @InjectMocks
+    private FileController fileController;
 
     @Test
-    @DisplayName("Should serve existing image file")
-    void serveFile_TwoSegments_Success() throws Exception {
-        // Arrange
-        byte[] imageBytes = new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF}; // JPEG magic
-        Resource resource = new ByteArrayResource(imageBytes) {
-            @Override public String getFilename() { return "avatar.jpg"; }
-            @Override public boolean exists()     { return true; }
-            @Override public boolean isReadable() { return true; }
-        };
-        Path fakePath = Paths.get("/storage/profiles/avatar.jpg");
+    void serveFile_withFolderAndFilename_returnsOk() throws Exception {
+        Path path = Paths.get("uploads/images/test.png");
+        when(localStorageService.resolveFilePath("images", "test.png")).thenReturn(path);
 
-        when(localStorageService.resolveFilePath("profiles", "avatar.jpg")).thenReturn(fakePath);
-        // UrlResource is created inside the controller, so we use a custom Resource above;
-        // but since UrlResource calls the real FS, we must mock the whole resolveFilePath to
-        // return a path whose UrlResource works. For unit tests the simplest approach is to
-        // verify the controller delegates correctly and returns 404 when resource is not found.
-        // Here we test the delegation path via a "not found" mock first, then success via real temp file.
-
-        // Act & Assert — because UrlResource checks the real FS and fakePath doesn't exist,
-        // the controller returns 404. That's the correct controller behaviour.
-        mockMvc.perform(get("/files/profiles/avatar.jpg"))
-                .andDo(print())
-                .andExpect(status().isNotFound());
-
-        verify(localStorageService, times(1)).resolveFilePath("profiles", "avatar.jpg");
+        URI uri = URI.create("file:///uploads/images/test.png");
+        try (var mocked = mockConstruction(org.springframework.core.io.UrlResource.class, (mock, ctx) -> {
+            when(mock.exists()).thenReturn(true);
+            when(mock.isReadable()).thenReturn(true);
+            when(mock.getFilename()).thenReturn("test.png");
+            when(mock.getURL()).thenReturn(uri.toURL());
+        })) {
+            ResponseEntity<Resource> response = fileController.serveFile("images", "test.png");
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        }
     }
 
     @Test
-    @DisplayName("Should return 400 when folder name is rejected by service")
-    void serveFile_TwoSegments_ServiceRejectsFolder() throws Exception {
-        // Arrange
-        when(localStorageService.resolveFilePath(eq("profiles"), anyString()))
-                .thenThrow(new FileStorageException("Invalid folder"));
+    void serveFile_withFolderSubfolderAndFilename_returnsOk() throws Exception {
+        Path path = Paths.get("uploads/docs/verification/license.pdf");
+        when(localStorageService.resolveFilePath("docs/verification", "license.pdf")).thenReturn(path);
 
-        // Act & Assert
-        mockMvc.perform(get("/files/profiles/avatar.jpg"))
-                .andDo(print())
-                .andExpect(status().isBadRequest());
+        URI uri = URI.create("file:///uploads/docs/verification/license.pdf");
+        try (var mocked = mockConstruction(org.springframework.core.io.UrlResource.class, (mock, ctx) -> {
+            when(mock.exists()).thenReturn(true);
+            when(mock.isReadable()).thenReturn(true);
+            when(mock.getFilename()).thenReturn("license.pdf");
+            when(mock.getURL()).thenReturn(uri.toURL());
+        })) {
+            ResponseEntity<Resource> response = fileController.serveFile("docs", "verification", "license.pdf");
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        }
     }
 
     @Test
-    @DisplayName("Should return 400 when filename is rejected by service (path traversal attempt)")
-    void serveFile_TwoSegments_PathTraversalRejected() throws Exception {
-        // Arrange
-        // LocalStorageService.resolveFilePath is responsible for detecting traversal
-        when(localStorageService.resolveFilePath(anyString(), anyString()))
-                .thenThrow(new FileStorageException("Path traversal attempt detected"));
+    void serveFile_withFileStorageException_returnsBadRequest() {
+        when(localStorageService.resolveFilePath("images", "test.png"))
+                .thenThrow(new FileStorageException("Invalid path"));
 
-        // Act & Assert
-        // Note: Spring normalises %2F-encoded slashes; using a literal dot-dot filename
-        // that doesn't cross segment boundaries is the safest way to test this in MockMvc.
-        mockMvc.perform(get("/files/profiles/..dangerous.jpg"))
-                .andDo(print())
-                .andExpect(status().isBadRequest());
+        ResponseEntity<Resource> response = fileController.serveFile("images", "test.png");
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
     @Test
-    @DisplayName("Should serve file from subfolder (3-segment path)")
-    void serveFile_ThreeSegments_Success() throws Exception {
-        // Arrange
-        when(localStorageService.resolveFilePath("uploads/2024", "photo.png"))
-                .thenThrow(new FileStorageException("File not accessible"));
+    void serveFile_withSubfolderAndFileStorageException_returnsBadRequest() {
+        when(localStorageService.resolveFilePath("docs/verification", "license.pdf"))
+                .thenThrow(new FileStorageException("Path traversal detected"));
 
-        // Act & Assert
-        mockMvc.perform(get("/files/uploads/2024/photo.png"))
-                .andDo(print())
-                .andExpect(status().isBadRequest());
+        ResponseEntity<Resource> response = fileController.serveFile("docs", "verification", "license.pdf");
 
-        verify(localStorageService, times(1)).resolveFilePath("uploads/2024", "photo.png");
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
     @Test
-    @DisplayName("Should return 404 when file does not exist on disk")
-    void serveFile_FileNotFound() throws Exception {
-        // Arrange
-        Path nonExistentPath = Paths.get("/storage/profiles/ghost.jpg");
-        when(localStorageService.resolveFilePath("profiles", "ghost.jpg"))
-                .thenReturn(nonExistentPath);
+    void serveFile_whenResourceNotReadable_returnsNotFound() throws Exception {
+        Path path = Paths.get("uploads/images/missing.png");
+        when(localStorageService.resolveFilePath("images", "missing.png")).thenReturn(path);
 
-        // Act & Assert — UrlResource for a non-existent path: exists()==false → 404
-        mockMvc.perform(get("/files/profiles/ghost.jpg"))
-                .andDo(print())
-                .andExpect(status().isNotFound());
+        URI uri = URI.create("file:///uploads/images/missing.png");
+        try (var mocked = mockConstruction(org.springframework.core.io.UrlResource.class, (mock, ctx) -> {
+            when(mock.exists()).thenReturn(true);
+            when(mock.isReadable()).thenReturn(false);
+        })) {
+            ResponseEntity<Resource> response = fileController.serveFile("images", "missing.png");
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        }
     }
 
     @Test
-    @DisplayName("Should return 400 when service rejects empty filename")
-    void serveFile_EmptyFilename_Rejected() throws Exception {
-        // Arrange
-        when(localStorageService.resolveFilePath(anyString(), anyString()))
-                .thenThrow(new FileStorageException("Filename cannot be empty"));
+    void serveFile_whenResourceDoesNotExist_returnsNotFound() throws Exception {
+        Path path = Paths.get("uploads/images/ghost.png");
+        when(localStorageService.resolveFilePath("images", "ghost.png")).thenReturn(path);
 
-        // Spring maps /files/profiles/ (trailing slash) to this handler with filename=""
-        // The regex {filename:.+} requires at least one character, so Spring returns 404
-        // before reaching the controller. Assert accordingly.
-        mockMvc.perform(get("/files/profiles/"))
-                .andDo(print())
-                // {filename:.+} requires 1+ chars — Spring returns 404 for trailing slash
-                .andExpect(status().isNotFound());
+        URI uri = URI.create("file:///uploads/images/ghost.png");
+        try (var mocked = mockConstruction(org.springframework.core.io.UrlResource.class, (mock, ctx) -> {
+            when(mock.exists()).thenReturn(false);
+        })) {
+            ResponseEntity<Resource> response = fileController.serveFile("images", "ghost.png");
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        }
     }
 
     @Test
-    @DisplayName("Should return 404 for request with no filename segment")
-    void serveFile_NoFilenameSegment() throws Exception {
-        // Act & Assert — /files/profiles has no filename path variable
-        mockMvc.perform(get("/files/profiles"))
-                .andDo(print())
-                .andExpect(status().isNotFound());
+    void serveFile_delegatesToLocalStorageService() {
+        when(localStorageService.resolveFilePath("images", "test.png"))
+                .thenThrow(new FileStorageException("fail"));
+
+        fileController.serveFile("images", "test.png");
+
+        verify(localStorageService).resolveFilePath("images", "test.png");
     }
 
     @Test
-    @DisplayName("Should return 400 when service rejects folder name containing special chars")
-    void serveFile_InvalidFolderName() throws Exception {
-        // Arrange
-        when(localStorageService.resolveFilePath(anyString(), anyString()))
-                .thenThrow(new FileStorageException("Invalid folder name"));
+    void serveFile_withSubfolder_buildsCombinedPath() {
+        when(localStorageService.resolveFilePath("drivers/documents", "id.jpg"))
+                .thenThrow(new FileStorageException("fail"));
 
-        // Act & Assert
-        mockMvc.perform(get("/files/invalid-folder!/avatar.jpg"))
-                .andDo(print())
-                .andExpect(status().isBadRequest());
-    }
+        fileController.serveFile("drivers", "documents", "id.jpg");
 
-    @Test
-    @DisplayName("Should delegate correctly for file with dots in name")
-    void serveFile_FilenameWithDots() throws Exception {
-        // Arrange — filename with multiple dots should resolve correctly
-        Path fakePath = Paths.get("/storage/profiles/avatar.min.jpg");
-        when(localStorageService.resolveFilePath("profiles", "avatar.min.jpg"))
-                .thenReturn(fakePath);
-
-        // Act & Assert — path doesn't exist on real FS, so 404
-        mockMvc.perform(get("/files/profiles/avatar.min.jpg"))
-                .andDo(print())
-                .andExpect(status().isNotFound());
-
-        verify(localStorageService, times(1)).resolveFilePath("profiles", "avatar.min.jpg");
-    }
-
-    @Test
-    @DisplayName("Should serve WebP file from three-segment path")
-    void serveFile_ThreeSegments_WebP() throws Exception {
-        // Arrange
-        Path fakePath = Paths.get("/storage/uploads/2024/picture.webp");
-        when(localStorageService.resolveFilePath("uploads/2024", "picture.webp"))
-                .thenReturn(fakePath);
-
-        // Act & Assert
-        mockMvc.perform(get("/files/uploads/2024/picture.webp"))
-                .andDo(print())
-                .andExpect(status().isNotFound()); // path not on real FS → notFound is correct
-
-        verify(localStorageService, times(1)).resolveFilePath("uploads/2024", "picture.webp");
+        verify(localStorageService).resolveFilePath("drivers/documents", "id.jpg");
     }
 }

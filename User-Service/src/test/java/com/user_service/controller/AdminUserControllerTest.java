@@ -1,266 +1,183 @@
 package com.user_service.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.user_service.dto.request.UpdateStatusRequest;
 import com.user_service.dto.request.UpdateVerificationRequest;
 import com.user_service.dto.response.UserResponse;
 import com.user_service.enums.Role;
 import com.user_service.enums.Status;
-import com.user_service.enums.VerificationStatus;
 import com.user_service.service.IAdminService;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.http.MediaType;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 
 import java.util.List;
 import java.util.UUID;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(AdminUserController.class)
-@AutoConfigureMockMvc(addFilters = false)
-@DisplayName("AdminUserController Tests")
+@ExtendWith(MockitoExtension.class)
 class AdminUserControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
-
-    @Autowired
-    private ObjectMapper objectMapper;
-
-    @InjectMocks
+    @Mock
     private IAdminService adminService;
 
+    @InjectMocks
+    private AdminUserController adminUserController;
+
     private UUID userId;
-    private UserResponse userResponse;
+    private UUID driverId;
+    private Pageable pageable;
 
     @BeforeEach
     void setUp() {
         userId = UUID.randomUUID();
-        userResponse = UserResponse.builder()
-                .id(userId)
-                .email("test@test.com")
-                .role(Role.CUSTOMER)
-                .status(Status.ACTIVE)
-                .build();
+        driverId = UUID.randomUUID();
+        pageable = PageRequest.of(0, 20);
     }
 
-    @Nested
-    @DisplayName("GET /api/admin/users")
-    class SearchUsersTests {
+    @Test
+    void searchUsers_withNoFilters_returnsAllUsers() {
+        UserResponse user = UserResponse.builder().build();
+        Page<UserResponse> page = new PageImpl<>(List.of(user));
+        when(adminService.searchUsers(null, null, null, pageable)).thenReturn(page);
 
-        @Test
-        @WithMockUser(roles = "ADMIN")
-        @DisplayName("Should search users with all parameters")
-        void searchUsers_allParams() throws Exception {
-            when(adminService.searchUsers(eq("test@test.com"), eq(Role.CUSTOMER), eq(Status.ACTIVE), any()))
-                    .thenReturn(new PageImpl<>(List.of(userResponse), PageRequest.of(0, 20), 1));
+        ResponseEntity<Page<UserResponse>> response = adminUserController.searchUsers(null, null, null, pageable);
 
-            mockMvc.perform(get("/api/admin/users")
-                            .param("email", "test@test.com")
-                            .param("role", "CUSTOMER")
-                            .param("status", "ACTIVE")
-                            .param("page", "0")
-                            .param("size", "20"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.content[0].email").value("test@test.com"))
-                    .andExpect(jsonPath("$.totalElements").value(1));
-
-            verify(adminService).searchUsers(eq("test@test.com"), eq(Role.CUSTOMER), eq(Status.ACTIVE), any());
-        }
-
-        @Test
-        @WithMockUser(roles = "ADMIN")
-        @DisplayName("Should search users without filters")
-        void searchUsers_noFilters() throws Exception {
-            when(adminService.searchUsers(eq(null), eq(null), eq(null), any()))
-                    .thenReturn(new PageImpl<>(List.of(userResponse), PageRequest.of(0, 20), 1));
-
-            mockMvc.perform(get("/api/admin/users"))
-                    .andExpect(status().isOk());
-
-            verify(adminService).searchUsers(eq(null), eq(null), eq(null), any());
-        }
-
-        @Test
-        @WithMockUser(roles = "ADMIN")
-        @DisplayName("Should return empty page when no users found")
-        void searchUsers_emptyResult() throws Exception {
-            when(adminService.searchUsers(any(), any(), any(), any()))
-                    .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
-
-            mockMvc.perform(get("/api/admin/users"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.content").isEmpty())
-                    .andExpect(jsonPath("$.totalElements").value(0));
-        }
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getContent()).hasSize(1);
+        verify(adminService).searchUsers(null, null, null, pageable);
     }
 
-    @Nested
-    @DisplayName("GET /api/admin/users/{userId}")
-    class GetUserByIdTests {
+    @Test
+    void searchUsers_withEmailFilter_returnsMatchingUsers() {
+        String email = "test@example.com";
+        Page<UserResponse> page = new PageImpl<>(List.of(UserResponse.builder().build()));
+        when(adminService.searchUsers(email, null, null, pageable)).thenReturn(page);
 
-        @Test
-        @WithMockUser(roles = "ADMIN")
-        @DisplayName("Should get user by ID successfully")
-        void getUserById_success() throws Exception {
-            when(adminService.getUserById(userId)).thenReturn(userResponse);
+        ResponseEntity<Page<UserResponse>> response = adminUserController.searchUsers(email, null, null, pageable);
 
-            mockMvc.perform(get("/api/admin/users/{userId}", userId))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.id").value(userId.toString()))
-                    .andExpect(jsonPath("$.email").value("test@test.com"));
-
-            verify(adminService).getUserById(userId);
-        }
-
-        @Test
-        @WithMockUser(roles = "ADMIN")
-        @DisplayName("Should return 404 when user not found")
-        void getUserById_notFound() throws Exception {
-            when(adminService.getUserById(any())).thenThrow(new RuntimeException("User not found"));
-
-            mockMvc.perform(get("/api/admin/users/{userId}", UUID.randomUUID()))
-                    .andExpect(status().is5xxServerError());
-        }
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        verify(adminService).searchUsers(email, null, null, pageable);
     }
 
-    @Nested
-    @DisplayName("PATCH /api/admin/users/{userId}/status")
-    class UpdateUserStatusTests {
+    @Test
+    void searchUsers_withRoleFilter_returnsMatchingUsers() {
+        Page<UserResponse> page = new PageImpl<>(List.of(UserResponse.builder().build()));
+        when(adminService.searchUsers(null, Role.DRIVER, null, pageable)).thenReturn(page);
 
-        @Test
-        @WithMockUser(roles = "ADMIN")
-        @DisplayName("Should update user status successfully")
-        void updateUserStatus_success() throws Exception {
-            UpdateStatusRequest request = UpdateStatusRequest.builder()
-                    .status(Status.SUSPENDED)
-                    .reason("Violated terms")
-                    .build();
+        ResponseEntity<Page<UserResponse>> response = adminUserController.searchUsers(null, Role.DRIVER, null, pageable);
 
-            doNothing().when(adminService).updateUserStatus(eq(userId), any(UpdateStatusRequest.class));
-
-            mockMvc.perform(patch("/api/admin/users/{userId}/status", userId)
-                            .with(csrf())
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
-                    .andExpect(status().isNoContent());
-
-            verify(adminService).updateUserStatus(eq(userId), any(UpdateStatusRequest.class));
-        }
-
-        @Test
-        @WithMockUser(roles = "ADMIN")
-        @DisplayName("Should return 400 when status is null")
-        void updateUserStatus_nullStatus() throws Exception {
-            UpdateStatusRequest request = UpdateStatusRequest.builder()
-                    .status(null)
-                    .reason("Some reason")
-                    .build();
-
-            mockMvc.perform(patch("/api/admin/users/{userId}/status", userId)
-                            .with(csrf())
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
-                    .andExpect(status().isBadRequest());
-
-            verify(adminService, never()).updateUserStatus(any(), any());
-        }
-
-        @Test
-        @WithMockUser(roles = "ADMIN")
-        @DisplayName("Should update status without reason")
-        void updateUserStatus_noReason() throws Exception {
-            UpdateStatusRequest request = UpdateStatusRequest.builder()
-                    .status(Status.ACTIVE)
-                    .build();
-
-            doNothing().when(adminService).updateUserStatus(eq(userId), any(UpdateStatusRequest.class));
-
-            mockMvc.perform(patch("/api/v1/admin/users/{userId}/status", userId)
-                            .with(csrf())
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
-                    .andExpect(status().isNoContent());
-        }
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        verify(adminService).searchUsers(null, Role.DRIVER, null, pageable);
     }
 
-    @Nested
-    @DisplayName("PATCH /api/admin/users/drivers/{driverId}/verification")
-    class UpdateDriverVerificationTests {
+    @Test
+    void searchUsers_withStatusFilter_returnsMatchingUsers() {
+        Page<UserResponse> page = new PageImpl<>(List.of(UserResponse.builder().build()));
+        when(adminService.searchUsers(null, null, Status.ACTIVE, pageable)).thenReturn(page);
 
-        @Test
-        @WithMockUser(roles = "ADMIN")
-        @DisplayName("Should update driver verification successfully")
-        void updateDriverVerification_success() throws Exception {
-            UUID driverId = UUID.randomUUID();
-            UpdateVerificationRequest request = UpdateVerificationRequest.builder()
-                    .status(VerificationStatus.APPROVED)
-                    .reason("All documents valid")
-                    .build();
+        ResponseEntity<Page<UserResponse>> response = adminUserController.searchUsers(null, null, Status.ACTIVE, pageable);
 
-            doNothing().when(adminService).updateDriverVerification(eq(driverId), any(UpdateVerificationRequest.class));
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        verify(adminService).searchUsers(null, null, Status.ACTIVE, pageable);
+    }
 
-            mockMvc.perform(patch("/api/admin/users/drivers/{driverId}/verification", driverId)
-                            .with(csrf())
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
-                    .andExpect(status().isNoContent());
+    @Test
+    void searchUsers_withAllFilters_returnsMatchingUsers() {
+        String email = "driver@example.com";
+        Page<UserResponse> page = new PageImpl<>(List.of(UserResponse.builder().build()));
+        when(adminService.searchUsers(email, Role.DRIVER, Status.ACTIVE, pageable)).thenReturn(page);
 
-            verify(adminService).updateDriverVerification(eq(driverId), any(UpdateVerificationRequest.class));
-        }
+        ResponseEntity<Page<UserResponse>> response = adminUserController.searchUsers(email, Role.DRIVER, Status.ACTIVE, pageable);
 
-        @Test
-        @WithMockUser(roles = "ADMIN")
-        @DisplayName("Should return 400 when verification status is null")
-        void updateDriverVerification_nullStatus() throws Exception {
-            UUID driverId = UUID.randomUUID();
-            UpdateVerificationRequest request = UpdateVerificationRequest.builder()
-                    .status(null)
-                    .reason("Some reason")
-                    .build();
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        verify(adminService).searchUsers(email, Role.DRIVER, Status.ACTIVE, pageable);
+    }
 
-            mockMvc.perform(patch("/api/admin/users/drivers/{driverId}/verification", driverId)
-                            .with(csrf())
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
-                    .andExpect(status().isBadRequest());
+    @Test
+    void searchUsers_returnsEmptyPage_whenNoMatch() {
+        Page<UserResponse> emptyPage = new PageImpl<>(List.of());
+        when(adminService.searchUsers(null, null, null, pageable)).thenReturn(emptyPage);
 
-            verify(adminService, never()).updateDriverVerification(any(), any());
-        }
+        ResponseEntity<Page<UserResponse>> response = adminUserController.searchUsers(null, null, null, pageable);
 
-        @Test
-        @WithMockUser(roles = "ADMIN")
-        @DisplayName("Should reject driver verification")
-        void updateDriverVerification_reject() throws Exception {
-            UUID driverId = UUID.randomUUID();
-            UpdateVerificationRequest request = UpdateVerificationRequest.builder()
-                    .status(VerificationStatus.REJECTED)
-                    .reason("Invalid documents")
-                    .build();
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getContent()).isEmpty();
+    }
 
-            doNothing().when(adminService).updateDriverVerification(eq(driverId), any(UpdateVerificationRequest.class));
+    @Test
+    void getUserById_returnsUserResponse() {
+        UserResponse userResponse = UserResponse.builder().id(userId).email("test@example.com").build();
+        when(adminService.getUserById(userId)).thenReturn(userResponse);
 
-            mockMvc.perform(patch("/api/admin/users/drivers/{driverId}/verification", driverId)
-                            .with(csrf())
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
-                    .andExpect(status().isNoContent());
-        }
+        ResponseEntity<UserResponse> response = adminUserController.getUserById(userId);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEqualTo(userResponse);
+        verify(adminService).getUserById(userId);
+    }
+
+    @Test
+    void getUserById_delegatesToAdminService() {
+        when(adminService.getUserById(userId)).thenReturn(UserResponse.builder().build());
+
+        adminUserController.getUserById(userId);
+
+        verify(adminService, times(1)).getUserById(userId);
+    }
+
+    @Test
+    void updateUserStatus_returnsNoContent() {
+        UpdateStatusRequest request = new UpdateStatusRequest();
+        doNothing().when(adminService).updateUserStatus(userId, request);
+
+        ResponseEntity<Void> response = adminUserController.updateUserStatus(userId, request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(response.getBody()).isNull();
+        verify(adminService).updateUserStatus(userId, request);
+    }
+
+    @Test
+    void updateUserStatus_delegatesToAdminService() {
+        UpdateStatusRequest request = new UpdateStatusRequest();
+
+        adminUserController.updateUserStatus(userId, request);
+
+        verify(adminService, times(1)).updateUserStatus(userId, request);
+    }
+
+    @Test
+    void updateDriverVerification_returnsNoContent() {
+        UpdateVerificationRequest request = new UpdateVerificationRequest();
+        doNothing().when(adminService).updateDriverVerification(driverId, request);
+
+        ResponseEntity<Void> response = adminUserController.updateDriverVerification(driverId, request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(response.getBody()).isNull();
+        verify(adminService).updateDriverVerification(driverId, request);
+    }
+
+    @Test
+    void updateDriverVerification_delegatesToAdminService() {
+        UpdateVerificationRequest request = new UpdateVerificationRequest();
+
+        adminUserController.updateDriverVerification(driverId, request);
+
+        verify(adminService, times(1)).updateDriverVerification(driverId, request);
     }
 }

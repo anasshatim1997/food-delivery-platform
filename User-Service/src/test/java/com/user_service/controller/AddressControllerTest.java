@@ -58,6 +58,8 @@ class AddressControllerTest {
     private UpdateAddressRequest updateRequest;
     private AddressResponse addressResponse;
 
+    private static final String BASE_URL = "/api/v1/users/v1/addresses";
+
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.standaloneSetup(addressController).build();
@@ -66,10 +68,8 @@ class AddressControllerTest {
         customerId = UUID.randomUUID();
         addressId = UUID.randomUUID();
 
-        // Setup mock authentication
         when(authentication.getName()).thenReturn(customerId.toString());
 
-        // Setup test data
         createRequest = new CreateAddressRequest();
         createRequest.setLabel("Home");
         createRequest.setStreet("123 Main Street");
@@ -108,12 +108,10 @@ class AddressControllerTest {
     @Test
     @DisplayName("Should create address successfully")
     void testCreateAddress_Success() throws Exception {
-        // Given
         when(addressService.createAddress(eq(customerId), any(CreateAddressRequest.class)))
                 .thenReturn(addressResponse);
 
-        // When & Then
-        mockMvc.perform(post("/api/v1/users/v1/addresses")
+        mockMvc.perform(post(BASE_URL)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(createRequest))
                         .principal(authentication))
@@ -134,11 +132,9 @@ class AddressControllerTest {
     @Test
     @DisplayName("Should fail to create address with invalid label")
     void testCreateAddress_InvalidLabel() throws Exception {
-        // Given
         createRequest.setLabel("InvalidLabel");
 
-        // When & Then
-        mockMvc.perform(post("/api/users/v1/addresses")
+        mockMvc.perform(post(BASE_URL)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(createRequest))
                         .principal(authentication))
@@ -151,13 +147,10 @@ class AddressControllerTest {
     @Test
     @DisplayName("Should fail to create address with missing required fields")
     void testCreateAddress_MissingRequiredFields() throws Exception {
-        // Given
         CreateAddressRequest invalidRequest = new CreateAddressRequest();
         invalidRequest.setLabel("Home");
-        // Missing street, building, city, latitude, longitude
 
-        // When & Then
-        mockMvc.perform(post("/api/users/v1/addresses")
+        mockMvc.perform(post(BASE_URL)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidRequest))
                         .principal(authentication))
@@ -170,11 +163,9 @@ class AddressControllerTest {
     @Test
     @DisplayName("Should fail to create address with invalid latitude")
     void testCreateAddress_InvalidLatitude() throws Exception {
-        // Given
-        createRequest.setLatitude(new BigDecimal("95.0")); // Invalid: > 90
+        createRequest.setLatitude(new BigDecimal("95.0"));
 
-        // When & Then
-        mockMvc.perform(post("/api/users/v1/addresses")
+        mockMvc.perform(post(BASE_URL)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(createRequest))
                         .principal(authentication))
@@ -187,11 +178,9 @@ class AddressControllerTest {
     @Test
     @DisplayName("Should fail to create address with invalid longitude")
     void testCreateAddress_InvalidLongitude() throws Exception {
-        // Given
-        createRequest.setLongitude(new BigDecimal("185.0")); // Invalid: > 180
+        createRequest.setLongitude(new BigDecimal("185.0"));
 
-        // When & Then
-        mockMvc.perform(post("/api/users/v1/addresses")
+        mockMvc.perform(post(BASE_URL)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(createRequest))
                         .principal(authentication))
@@ -204,7 +193,6 @@ class AddressControllerTest {
     @Test
     @DisplayName("Should get all addresses successfully")
     void testGetAddresses_Success() throws Exception {
-        // Given
         AddressResponse address2 = AddressResponse.builder()
                 .id(UUID.randomUUID())
                 .label("Work")
@@ -221,8 +209,7 @@ class AddressControllerTest {
         List<AddressResponse> addresses = Arrays.asList(addressResponse, address2);
         when(addressService.getAddresses(customerId)).thenReturn(addresses);
 
-        // When & Then
-        mockMvc.perform(get("/api/users/v1/addresses")
+        mockMvc.perform(get(BASE_URL)
                         .principal(authentication))
                 .andDo(print())
                 .andExpect(status().isOk())
@@ -239,15 +226,13 @@ class AddressControllerTest {
     @Test
     @DisplayName("Should get paginated addresses successfully")
     void testGetAddressesPaginated_Success() throws Exception {
-        // Given
         List<AddressResponse> addresses = Arrays.asList(addressResponse);
         Page<AddressResponse> addressPage = new PageImpl<>(addresses, PageRequest.of(0, 10), 1);
 
         when(addressService.getAddressesPaginated(eq(customerId), any(Pageable.class)))
                 .thenReturn(addressPage);
 
-        // When & Then
-        mockMvc.perform(get("/api/users/v1/addresses/paginated")
+        mockMvc.perform(get(BASE_URL + "/paginated")
                         .param("page", "0")
                         .param("size", "10")
                         .principal(authentication))
@@ -267,15 +252,13 @@ class AddressControllerTest {
     @Test
     @DisplayName("Should get paginated addresses with custom page size")
     void testGetAddressesPaginated_CustomPageSize() throws Exception {
-        // Given
         List<AddressResponse> addresses = Arrays.asList(addressResponse);
         Page<AddressResponse> addressPage = new PageImpl<>(addresses, PageRequest.of(1, 5), 10);
 
         when(addressService.getAddressesPaginated(eq(customerId), any(Pageable.class)))
                 .thenReturn(addressPage);
 
-        // When & Then
-        mockMvc.perform(get("/api/users/v1/addresses/paginated")
+        mockMvc.perform(get(BASE_URL + "/paginated")
                         .param("page", "1")
                         .param("size", "5")
                         .principal(authentication))
@@ -290,11 +273,9 @@ class AddressControllerTest {
     @Test
     @DisplayName("Should get single address successfully")
     void testGetAddress_Success() throws Exception {
-        // Given
         when(addressService.getAddress(customerId, addressId)).thenReturn(addressResponse);
 
-        // When & Then
-        mockMvc.perform(get("/api/users/v1/addresses/{addressId}", addressId)
+        mockMvc.perform(get(BASE_URL + "/{addressId}", addressId)
                         .principal(authentication))
                 .andDo(print())
                 .andExpect(status().isOk())
@@ -311,7 +292,6 @@ class AddressControllerTest {
     @Test
     @DisplayName("Should update address successfully")
     void testUpdateAddress_Success() throws Exception {
-        // Given
         AddressResponse updatedResponse = AddressResponse.builder()
                 .id(addressId)
                 .label("Work")
@@ -328,8 +308,7 @@ class AddressControllerTest {
         when(addressService.updateAddress(eq(customerId), eq(addressId), any(UpdateAddressRequest.class)))
                 .thenReturn(updatedResponse);
 
-        // When & Then
-        mockMvc.perform(patch("/api/users/v1/addresses/{addressId}", addressId)
+        mockMvc.perform(patch(BASE_URL + "/{addressId}", addressId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(updateRequest))
                         .principal(authentication))
@@ -348,11 +327,9 @@ class AddressControllerTest {
     @Test
     @DisplayName("Should delete address successfully")
     void testDeleteAddress_Success() throws Exception {
-        // Given
         doNothing().when(addressService).deleteAddress(customerId, addressId);
 
-        // When & Then
-        mockMvc.perform(delete("/api/users/v1/addresses/{addressId}", addressId)
+        mockMvc.perform(delete(BASE_URL + "/{addressId}", addressId)
                         .principal(authentication))
                 .andDo(print())
                 .andExpect(status().isOk())
@@ -367,7 +344,6 @@ class AddressControllerTest {
     @Test
     @DisplayName("Should set default address successfully")
     void testSetDefaultAddress_Success() throws Exception {
-        // Given
         AddressResponse defaultAddressResponse = AddressResponse.builder()
                 .id(addressId)
                 .label("Home")
@@ -384,8 +360,7 @@ class AddressControllerTest {
         when(addressService.setDefaultAddress(customerId, addressId))
                 .thenReturn(defaultAddressResponse);
 
-        // When & Then
-        mockMvc.perform(put("/api/users/v1/addresses/{addressId}/default", addressId)
+        mockMvc.perform(put(BASE_URL + "/{addressId}/default", addressId)
                         .principal(authentication))
                 .andDo(print())
                 .andExpect(status().isOk())
@@ -401,13 +376,11 @@ class AddressControllerTest {
     @Test
     @DisplayName("Should handle authentication extraction correctly")
     void testAuthenticationExtraction() throws Exception {
-        // Given
         UUID testCustomerId = UUID.randomUUID();
         when(authentication.getName()).thenReturn(testCustomerId.toString());
         when(addressService.getAddresses(testCustomerId)).thenReturn(Arrays.asList(addressResponse));
 
-        // When & Then
-        mockMvc.perform(get("/api/users/v1/addresses")
+        mockMvc.perform(get(BASE_URL)
                         .principal(authentication))
                 .andDo(print())
                 .andExpect(status().isOk());
@@ -418,7 +391,6 @@ class AddressControllerTest {
     @Test
     @DisplayName("Should use default pagination parameters when not provided")
     void testGetAddressesPaginated_DefaultParameters() throws Exception {
-        // Given
         Page<AddressResponse> addressPage = new PageImpl<>(
                 Arrays.asList(addressResponse),
                 PageRequest.of(0, 10),
@@ -428,8 +400,7 @@ class AddressControllerTest {
         when(addressService.getAddressesPaginated(eq(customerId), any(Pageable.class)))
                 .thenReturn(addressPage);
 
-        // When & Then
-        mockMvc.perform(get("/api/users/v1/addresses/paginated")
+        mockMvc.perform(get(BASE_URL + "/paginated")
                         .principal(authentication))
                 .andDo(print())
                 .andExpect(status().isOk())

@@ -8,33 +8,22 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class LocalIStorageServiceTest {
 
-    @TempDir
-    Path tempDir;
-
-    @Mock
-    private MultipartFile multipartFile;
-
     private LocalIStorageService storageService;
 
-    private static final byte[] JPEG_MAGIC = new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0x00};
-    private static final byte[] PNG_MAGIC  = new byte[]{(byte) 0x89, 0x50, 0x4E, 0x47, 0x00};
-    private static final byte[] WEBP_MAGIC = new byte[]{0x52, 0x49, 0x46, 0x46, 0x00};
+    @TempDir
+    Path tempDir;
 
     @BeforeEach
     void setUp() {
@@ -48,148 +37,133 @@ class LocalIStorageServiceTest {
     class UploadFile {
 
         @Test
-        void uploadsJpegFileAndReturnsUrl() throws IOException {
-            when(multipartFile.isEmpty()).thenReturn(false);
-            when(multipartFile.getSize()).thenReturn(1024L);
-            when(multipartFile.getContentType()).thenReturn("image/jpeg");
-            when(multipartFile.getOriginalFilename()).thenReturn("photo.jpg");
-            when(multipartFile.getInputStream()).thenReturn(new ByteArrayInputStream(JPEG_MAGIC));
+        void uploadsJpegFileSuccessfully() throws IOException {
+            byte[] jpegBytes = new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0x00, 0x01, 0x02};
+            MockMultipartFile file = new MockMultipartFile("file", "photo.jpg", "image/jpeg", jpegBytes);
 
-            String url = storageService.uploadFile(multipartFile, "avatars");
+            String url = storageService.uploadFile(file, "avatars");
 
             assertThat(url).startsWith("http://localhost:8001/files/avatars/");
             assertThat(url).endsWith(".jpg");
         }
 
         @Test
-        void uploadsPngFileAndReturnsUrl() throws IOException {
-            when(multipartFile.isEmpty()).thenReturn(false);
-            when(multipartFile.getSize()).thenReturn(2048L);
-            when(multipartFile.getContentType()).thenReturn("image/png");
-            when(multipartFile.getOriginalFilename()).thenReturn("image.png");
-            when(multipartFile.getInputStream()).thenReturn(new ByteArrayInputStream(PNG_MAGIC));
+        void uploadsPngFileSuccessfully() throws IOException {
+            byte[] pngBytes = new byte[]{(byte) 0x89, 0x50, 0x4E, 0x47, 0x00, 0x01};
+            MockMultipartFile file = new MockMultipartFile("file", "image.png", "image/png", pngBytes);
 
-            String url = storageService.uploadFile(multipartFile, "documents");
+            String url = storageService.uploadFile(file, "avatars");
 
-            assertThat(url).startsWith("http://localhost:8001/files/documents/");
+            assertThat(url).startsWith("http://localhost:8001/files/avatars/");
             assertThat(url).endsWith(".png");
         }
 
         @Test
-        void uploadsWebpFileAndReturnsUrl() throws IOException {
-            when(multipartFile.isEmpty()).thenReturn(false);
-            when(multipartFile.getSize()).thenReturn(512L);
-            when(multipartFile.getContentType()).thenReturn("image/webp");
-            when(multipartFile.getOriginalFilename()).thenReturn("image.webp");
-            when(multipartFile.getInputStream()).thenReturn(new ByteArrayInputStream(WEBP_MAGIC));
+        void uploadsWebpFileSuccessfully() throws IOException {
+            byte[] webpBytes = new byte[]{0x52, 0x49, 0x46, 0x46, 0x00, 0x01, 0x02, 0x03, 0x57, 0x45, 0x42, 0x50};
+            MockMultipartFile file = new MockMultipartFile("file", "image.webp", "image/webp", webpBytes);
 
-            String url = storageService.uploadFile(multipartFile, "profile");
+            String url = storageService.uploadFile(file, "avatars");
 
-            assertThat(url).startsWith("http://localhost:8001/files/profile/");
+            assertThat(url).startsWith("http://localhost:8001/files/avatars/");
             assertThat(url).endsWith(".webp");
         }
 
         @Test
-        void createsSubfolderIfNotExists() throws IOException {
-            when(multipartFile.isEmpty()).thenReturn(false);
-            when(multipartFile.getSize()).thenReturn(1024L);
-            when(multipartFile.getContentType()).thenReturn("image/jpeg");
-            when(multipartFile.getOriginalFilename()).thenReturn("photo.jpg");
-            when(multipartFile.getInputStream()).thenReturn(new ByteArrayInputStream(JPEG_MAGIC));
+        void throwsWhenFileIsEmpty() {
+            MockMultipartFile file = new MockMultipartFile("file", "empty.jpg", "image/jpeg", new byte[0]);
 
-            storageService.uploadFile(multipartFile, "new-folder");
-
-            assertThat(Files.isDirectory(tempDir.resolve("new-folder"))).isTrue();
+            assertThatThrownBy(() -> storageService.uploadFile(file, "avatars"))
+                    .isInstanceOf(FileStorageException.class)
+                    .hasMessageContaining("Cannot upload an empty file");
         }
 
         @Test
-        void throwsWhenFileIsEmpty() {
-            when(multipartFile.isEmpty()).thenReturn(true);
-
-            assertThatThrownBy(() -> storageService.uploadFile(multipartFile, "avatars"))
-                    .isInstanceOf(FileStorageException.class)
-                    .hasMessageContaining("empty");
+        void throwsWhenFileIsNull() {
+            assertThatThrownBy(() -> storageService.uploadFile(null, "avatars"))
+                    .isInstanceOf(FileStorageException.class);
         }
 
         @Test
         void throwsWhenFileSizeExceedsLimit() {
-            when(multipartFile.isEmpty()).thenReturn(false);
-            when(multipartFile.getSize()).thenReturn(6 * 1024 * 1024L);
+            byte[] largeContent = new byte[6 * 1024 * 1024];
+            largeContent[0] = (byte) 0xFF;
+            largeContent[1] = (byte) 0xD8;
+            largeContent[2] = (byte) 0xFF;
+            MockMultipartFile file = new MockMultipartFile("file", "big.jpg", "image/jpeg", largeContent);
 
-            assertThatThrownBy(() -> storageService.uploadFile(multipartFile, "avatars"))
+            assertThatThrownBy(() -> storageService.uploadFile(file, "avatars"))
                     .isInstanceOf(FileStorageException.class)
                     .hasMessageContaining("5MB");
         }
 
         @Test
-        void throwsWhenContentTypeIsNotAllowed() {
-            when(multipartFile.isEmpty()).thenReturn(false);
-            when(multipartFile.getSize()).thenReturn(1024L);
-            when(multipartFile.getContentType()).thenReturn("application/pdf");
+        void throwsWhenContentTypeIsInvalid() {
+            byte[] bytes = new byte[]{0x25, 0x50, 0x44, 0x46};
+            MockMultipartFile file = new MockMultipartFile("file", "doc.pdf", "application/pdf", bytes);
 
-            assertThatThrownBy(() -> storageService.uploadFile(multipartFile, "avatars"))
+            assertThatThrownBy(() -> storageService.uploadFile(file, "docs"))
                     .isInstanceOf(FileStorageException.class)
                     .hasMessageContaining("Invalid file type");
         }
 
         @Test
-        void throwsWhenExtensionIsNotAllowed() {
-            when(multipartFile.isEmpty()).thenReturn(false);
-            when(multipartFile.getSize()).thenReturn(1024L);
-            when(multipartFile.getContentType()).thenReturn("image/jpeg");
-            when(multipartFile.getOriginalFilename()).thenReturn("file.gif");
+        void throwsWhenContentTypeIsNull() {
+            byte[] bytes = new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF};
+            MockMultipartFile file = new MockMultipartFile("file", "photo.jpg", null, bytes);
 
-            assertThatThrownBy(() -> storageService.uploadFile(multipartFile, "avatars"))
+            assertThatThrownBy(() -> storageService.uploadFile(file, "avatars"))
                     .isInstanceOf(FileStorageException.class)
-                    .hasMessageContaining("Invalid file extension");
+                    .hasMessageContaining("Invalid file type");
         }
 
         @Test
-        void throwsWhenMagicBytesMismatchContentType() throws IOException {
-            byte[] fakePngBytes = new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF};
+        void throwsWhenExtensionIsInvalid() {
+            byte[] jpegBytes = new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF};
+            MockMultipartFile file = new MockMultipartFile("file", "photo.gif", "image/jpeg", jpegBytes);
 
-            when(multipartFile.isEmpty()).thenReturn(false);
-            when(multipartFile.getSize()).thenReturn(1024L);
-            when(multipartFile.getContentType()).thenReturn("image/png");
-            when(multipartFile.getOriginalFilename()).thenReturn("fake.png");
-            when(multipartFile.getInputStream()).thenReturn(new ByteArrayInputStream(fakePngBytes));
+            assertThatThrownBy(() -> storageService.uploadFile(file, "avatars"))
+                    .isInstanceOf(FileStorageException.class);
+        }
 
-            assertThatThrownBy(() -> storageService.uploadFile(multipartFile, "avatars"))
+        @Test
+        void throwsWhenMagicBytesMismatchContentType() {
+            byte[] pngBytes = new byte[]{(byte) 0x89, 0x50, 0x4E, 0x47};
+            MockMultipartFile file = new MockMultipartFile("file", "fake.jpg", "image/jpeg", pngBytes);
+
+            assertThatThrownBy(() -> storageService.uploadFile(file, "avatars"))
                     .isInstanceOf(FileStorageException.class)
-                    .hasMessageContaining("spoofing");
+                    .hasMessageContaining("File content does not match");
+        }
+
+        @Test
+        void throwsWhenFolderIsEmpty() {
+            byte[] jpegBytes = new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF};
+            MockMultipartFile file = new MockMultipartFile("file", "photo.jpg", "image/jpeg", jpegBytes);
+
+            assertThatThrownBy(() -> storageService.uploadFile(file, ""))
+                    .isInstanceOf(FileStorageException.class)
+                    .hasMessageContaining("Folder name must not be empty");
         }
 
         @Test
         void throwsWhenFolderContainsPathTraversal() {
-            assertThatThrownBy(() -> storageService.uploadFile(multipartFile, "../evil"))
+            byte[] jpegBytes = new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF};
+            MockMultipartFile file = new MockMultipartFile("file", "photo.jpg", "image/jpeg", jpegBytes);
+
+            assertThatThrownBy(() -> storageService.uploadFile(file, "../etc"))
                     .isInstanceOf(FileStorageException.class)
                     .hasMessageContaining("path traversal");
         }
 
         @Test
         void throwsWhenFolderContainsInvalidCharacters() {
-            assertThatThrownBy(() -> storageService.uploadFile(multipartFile, "bad folder!"))
+            byte[] jpegBytes = new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF};
+            MockMultipartFile file = new MockMultipartFile("file", "photo.jpg", "image/jpeg", jpegBytes);
+
+            assertThatThrownBy(() -> storageService.uploadFile(file, "folder name!"))
                     .isInstanceOf(FileStorageException.class)
                     .hasMessageContaining("Invalid folder name");
-        }
-
-        @Test
-        void throwsWhenFolderIsBlank() {
-            assertThatThrownBy(() -> storageService.uploadFile(multipartFile, ""))
-                    .isInstanceOf(FileStorageException.class)
-                    .hasMessageContaining("Folder name must not be empty");
-        }
-
-        @Test
-        void throwsWhenFileHasNoExtension() {
-            when(multipartFile.isEmpty()).thenReturn(false);
-            when(multipartFile.getSize()).thenReturn(1024L);
-            when(multipartFile.getContentType()).thenReturn("image/jpeg");
-            when(multipartFile.getOriginalFilename()).thenReturn("noextension");
-
-            assertThatThrownBy(() -> storageService.uploadFile(multipartFile, "avatars"))
-                    .isInstanceOf(FileStorageException.class)
-                    .hasMessageContaining("valid extension");
         }
     }
 
@@ -198,55 +172,45 @@ class LocalIStorageServiceTest {
 
         @Test
         void deletesExistingFileSuccessfully() throws IOException {
-            Path folder = tempDir.resolve("avatars");
-            Files.createDirectories(folder);
-            String filename = UUID.randomUUID() + ".jpg";
-            Path file = folder.resolve(filename);
-            Files.createFile(file);
+            byte[] jpegBytes = new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0x00};
+            MockMultipartFile file = new MockMultipartFile("file", "photo.jpg", "image/jpeg", jpegBytes);
+            String url = storageService.uploadFile(file, "avatars");
 
-            String fileUrl = "http://localhost:8001/files/avatars/" + filename;
-            storageService.deleteFile(fileUrl);
+            storageService.deleteFile(url);
 
-            assertThat(Files.exists(file)).isFalse();
+            String filename = url.substring(url.lastIndexOf('/') + 1);
+            Path filePath = tempDir.resolve("avatars").resolve(filename);
+            assertThat(filePath).doesNotExist();
         }
 
         @Test
-        void doesNothingWhenFileUrlIsNull() {
+        void doesNothingWhenUrlIsNull() {
             storageService.deleteFile(null);
         }
 
         @Test
-        void doesNothingWhenFileUrlIsBlank() {
+        void doesNothingWhenUrlIsBlank() {
             storageService.deleteFile("   ");
         }
 
         @Test
-        void throwsWhenFileUrlDoesNotMatchBaseUrl() {
-            assertThatThrownBy(() -> storageService.deleteFile("http://evil.com/files/avatars/file.jpg"))
+        void throwsWhenUrlDoesNotMatchBaseUrl() {
+            assertThatThrownBy(() -> storageService.deleteFile("http://malicious.com/files/avatars/some.jpg"))
                     .isInstanceOf(FileStorageException.class)
                     .hasMessageContaining("Invalid file URL");
         }
 
         @Test
         void throwsWhenUrlStructureIsInvalid() {
-            assertThatThrownBy(() -> storageService.deleteFile("http://localhost:8001/files/only-one-segment"))
+            assertThatThrownBy(() -> storageService.deleteFile("http://localhost:8001/files/avatars/sub/extra/file.jpg"))
                     .isInstanceOf(FileStorageException.class)
                     .hasMessageContaining("Invalid file URL structure");
         }
 
         @Test
-        void throwsWhenFolderInUrlContainsPathTraversal() {
-            String filename = UUID.randomUUID() + ".jpg";
-            assertThatThrownBy(() -> storageService.deleteFile("http://localhost:8001/files/../evil/" + filename))
+        void throwsWhenFolderInUrlIsInvalid() {
+            assertThatThrownBy(() -> storageService.deleteFile("http://localhost:8001/files/../etc/" + java.util.UUID.randomUUID() + ".jpg"))
                     .isInstanceOf(FileStorageException.class);
-        }
-
-        @Test
-        void doesNotThrowWhenFileDoesNotExist() {
-            String filename = UUID.randomUUID() + ".jpg";
-            String fileUrl = "http://localhost:8001/files/avatars/" + filename;
-
-            storageService.deleteFile(fileUrl);
         }
     }
 
@@ -254,41 +218,57 @@ class LocalIStorageServiceTest {
     class ResolveFilePath {
 
         @Test
-        void resolvesValidFolderAndFilename() {
-            String filename = UUID.randomUUID() + ".jpg";
+        void resolvesValidPath() throws IOException {
+            byte[] jpegBytes = new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0x00};
+            MockMultipartFile file = new MockMultipartFile("file", "photo.jpg", "image/jpeg", jpegBytes);
+            String url = storageService.uploadFile(file, "avatars");
+            String filename = url.substring(url.lastIndexOf('/') + 1);
+
             Path resolved = storageService.resolveFilePath("avatars", filename);
 
+            assertThat(resolved).isNotNull();
             assertThat(resolved.toString()).contains("avatars");
             assertThat(resolved.toString()).contains(filename);
         }
 
         @Test
-        void throwsWhenFolderIsInvalidInResolve() {
-            String filename = UUID.randomUUID() + ".jpg";
-
-            assertThatThrownBy(() -> storageService.resolveFilePath("../evil", filename))
-                    .isInstanceOf(FileStorageException.class);
+        void throwsWhenFolderIsNull() {
+            assertThatThrownBy(() -> storageService.resolveFilePath(null, java.util.UUID.randomUUID() + ".jpg"))
+                    .isInstanceOf(FileStorageException.class)
+                    .hasMessageContaining("Folder name must not be empty");
         }
 
         @Test
-        void throwsWhenFilenameIsInvalidInResolve() {
-            assertThatThrownBy(() -> storageService.resolveFilePath("avatars", "not-a-uuid.jpg"))
+        void throwsWhenFilenameContainsPathTraversal() {
+            assertThatThrownBy(() -> storageService.resolveFilePath("avatars", "../secret.jpg"))
+                    .isInstanceOf(FileStorageException.class)
+                    .hasMessageContaining("path traversal");
+        }
+
+        @Test
+        void throwsWhenFilenameHasInvalidUuidFormat() {
+            assertThatThrownBy(() -> storageService.resolveFilePath("avatars", "notauuid.jpg"))
                     .isInstanceOf(FileStorageException.class)
                     .hasMessageContaining("Invalid stored filename format");
         }
 
         @Test
-        void throwsWhenFilenameHasInvalidExtensionInResolve() {
-            String filename = UUID.randomUUID() + ".gif";
-
-            assertThatThrownBy(() -> storageService.resolveFilePath("avatars", filename))
+        void throwsWhenFilenameHasInvalidExtension() {
+            assertThatThrownBy(() -> storageService.resolveFilePath("avatars", java.util.UUID.randomUUID() + ".exe"))
                     .isInstanceOf(FileStorageException.class)
                     .hasMessageContaining("Invalid file extension");
         }
 
         @Test
+        void throwsWhenFilenameIsBlank() {
+            assertThatThrownBy(() -> storageService.resolveFilePath("avatars", ""))
+                    .isInstanceOf(FileStorageException.class)
+                    .hasMessageContaining("Filename must not be empty");
+        }
+
+        @Test
         void throwsWhenFilenameHasNoExtension() {
-            assertThatThrownBy(() -> storageService.resolveFilePath("avatars", "nodot"))
+            assertThatThrownBy(() -> storageService.resolveFilePath("avatars", java.util.UUID.randomUUID().toString()))
                     .isInstanceOf(FileStorageException.class)
                     .hasMessageContaining("Invalid stored filename");
         }

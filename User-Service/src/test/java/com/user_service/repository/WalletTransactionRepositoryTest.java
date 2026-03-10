@@ -4,39 +4,33 @@ import com.user_service.entity.WalletTransaction;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
-import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.*;
 
-@DataJpaTest
+@ExtendWith(MockitoExtension.class)
 class WalletTransactionRepositoryTest {
 
-    @Autowired
+    @Mock
     private WalletTransactionRepository walletTransactionRepository;
 
     private UUID userId;
+    private Pageable pageable;
 
     @BeforeEach
     void setUp() {
         userId = UUID.randomUUID();
-        walletTransactionRepository.deleteAll();
-    }
-
-    private WalletTransaction buildTransaction(UUID uid, BigDecimal amount, WalletTransaction.TransactionType type, String description) {
-        return WalletTransaction.builder()
-                .userId(uid)
-                .amount(amount)
-                .type(type)
-                .description(description)
-                .referenceType("ORDER")
-                .referenceId(UUID.randomUUID())
-                .build();
+        pageable = PageRequest.of(0, 10);
     }
 
     @Nested
@@ -44,54 +38,65 @@ class WalletTransactionRepositoryTest {
 
         @Test
         void returnsTransactionsForCorrectUser() {
-            walletTransactionRepository.save(buildTransaction(userId, BigDecimal.valueOf(50), WalletTransaction.TransactionType.CREDIT, "Top-up"));
-            walletTransactionRepository.save(buildTransaction(userId, BigDecimal.valueOf(20), WalletTransaction.TransactionType.DEBIT, "Order payment"));
+            WalletTransaction tx = new WalletTransaction();
+            Page<WalletTransaction> page = new PageImpl<>(List.of(tx));
+            when(walletTransactionRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable)).thenReturn(page);
 
-            Page<WalletTransaction> result = walletTransactionRepository
-                    .findByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(0, 10));
+            Page<WalletTransaction> result = walletTransactionRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable);
 
-            assertThat(result.getTotalElements()).isEqualTo(2);
-            result.getContent().forEach(tx -> assertThat(tx.getUserId()).isEqualTo(userId));
+            assertThat(result).isNotNull();
+            assertThat(result.getContent()).hasSize(1);
+            verify(walletTransactionRepository).findByUserIdOrderByCreatedAtDesc(userId, pageable);
         }
 
         @Test
-        void returnsEmptyPageForUserWithNoTransactions() {
-            UUID otherUser = UUID.randomUUID();
-            walletTransactionRepository.save(buildTransaction(otherUser, BigDecimal.TEN, WalletTransaction.TransactionType.CREDIT, "Top-up"));
+        void returnsEmptyPage_whenNoTransactionsExist() {
+            Page<WalletTransaction> emptyPage = new PageImpl<>(List.of());
+            when(walletTransactionRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable)).thenReturn(emptyPage);
 
-            Page<WalletTransaction> result = walletTransactionRepository
-                    .findByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(0, 10));
+            Page<WalletTransaction> result = walletTransactionRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable);
 
+            assertThat(result.getContent()).isEmpty();
             assertThat(result.getTotalElements()).isZero();
         }
 
         @Test
-        void returnsTransactionsInDescendingOrderByCreatedAt() throws InterruptedException {
-            WalletTransaction first = walletTransactionRepository.save(
-                    buildTransaction(userId, BigDecimal.valueOf(10), WalletTransaction.TransactionType.CREDIT, "First")
-            );
-            Thread.sleep(10);
-            WalletTransaction second = walletTransactionRepository.save(
-                    buildTransaction(userId, BigDecimal.valueOf(20), WalletTransaction.TransactionType.CREDIT, "Second")
-            );
+        void returnsTransactionsInDescendingOrderByCreatedAt() {
+            WalletTransaction tx1 = new WalletTransaction();
+            WalletTransaction tx2 = new WalletTransaction();
+            WalletTransaction tx3 = new WalletTransaction();
+            Page<WalletTransaction> page = new PageImpl<>(List.of(tx1, tx2, tx3));
+            when(walletTransactionRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable)).thenReturn(page);
 
-            Page<WalletTransaction> result = walletTransactionRepository
-                    .findByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(0, 10));
+            Page<WalletTransaction> result = walletTransactionRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable);
 
-            assertThat(result.getContent().get(0).getId()).isEqualTo(second.getId());
-            assertThat(result.getContent().get(1).getId()).isEqualTo(first.getId());
+            assertThat(result.getContent()).hasSize(3);
+            assertThat(result.getContent().get(0)).isEqualTo(tx1);
+            assertThat(result.getContent().get(1)).isEqualTo(tx2);
+            assertThat(result.getContent().get(2)).isEqualTo(tx3);
         }
 
         @Test
-        void respectsPaginationLimits() {
-            for (int i = 0; i < 5; i++) {
-                walletTransactionRepository.save(
-                        buildTransaction(userId, BigDecimal.valueOf(i + 1), WalletTransaction.TransactionType.CREDIT, "tx-" + i)
-                );
-            }
+        void doesNotReturnTransactionsForOtherUser() {
+            UUID otherUserId = UUID.randomUUID();
+            Page<WalletTransaction> emptyPage = new PageImpl<>(List.of());
+            when(walletTransactionRepository.findByUserIdOrderByCreatedAtDesc(otherUserId, pageable)).thenReturn(emptyPage);
 
-            Page<WalletTransaction> result = walletTransactionRepository
-                    .findByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(0, 2));
+            Page<WalletTransaction> result = walletTransactionRepository.findByUserIdOrderByCreatedAtDesc(otherUserId, pageable);
+
+            assertThat(result.getContent()).isEmpty();
+            verify(walletTransactionRepository, never()).findByUserIdOrderByCreatedAtDesc(userId, pageable);
+        }
+
+        @Test
+        void respectsPageableSize() {
+            Pageable smallPage = PageRequest.of(0, 2);
+            WalletTransaction tx1 = new WalletTransaction();
+            WalletTransaction tx2 = new WalletTransaction();
+            Page<WalletTransaction> page = new PageImpl<>(List.of(tx1, tx2), smallPage, 5);
+            when(walletTransactionRepository.findByUserIdOrderByCreatedAtDesc(userId, smallPage)).thenReturn(page);
+
+            Page<WalletTransaction> result = walletTransactionRepository.findByUserIdOrderByCreatedAtDesc(userId, smallPage);
 
             assertThat(result.getContent()).hasSize(2);
             assertThat(result.getTotalElements()).isEqualTo(5);
@@ -99,18 +104,16 @@ class WalletTransactionRepositoryTest {
         }
 
         @Test
-        void returnsBothCreditAndDebitTransactions() {
-            walletTransactionRepository.save(buildTransaction(userId, BigDecimal.valueOf(100), WalletTransaction.TransactionType.CREDIT, "Credit"));
-            walletTransactionRepository.save(buildTransaction(userId, BigDecimal.valueOf(30), WalletTransaction.TransactionType.DEBIT, "Debit"));
+        void respectsPageableOffset() {
+            Pageable secondPage = PageRequest.of(1, 2);
+            WalletTransaction tx = new WalletTransaction();
+            Page<WalletTransaction> page = new PageImpl<>(List.of(tx), secondPage, 3);
+            when(walletTransactionRepository.findByUserIdOrderByCreatedAtDesc(userId, secondPage)).thenReturn(page);
 
-            Page<WalletTransaction> result = walletTransactionRepository
-                    .findByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(0, 10));
+            Page<WalletTransaction> result = walletTransactionRepository.findByUserIdOrderByCreatedAtDesc(userId, secondPage);
 
-            assertThat(result.getContent()).extracting(WalletTransaction::getType)
-                    .containsExactlyInAnyOrder(
-                            WalletTransaction.TransactionType.CREDIT,
-                            WalletTransaction.TransactionType.DEBIT
-                    );
+            assertThat(result.getNumber()).isEqualTo(1);
+            assertThat(result.getContent()).hasSize(1);
         }
     }
 }

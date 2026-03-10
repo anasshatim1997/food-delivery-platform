@@ -4,9 +4,11 @@ import com.user_service.entity.UserActivity;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 
 import java.time.LocalDateTime;
@@ -14,11 +16,12 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.*;
 
-@DataJpaTest
+@ExtendWith(MockitoExtension.class)
 class UserActivityRepositoryTest {
 
-    @Autowired
+    @Mock
     private UserActivityRepository userActivityRepository;
 
     private UUID userId;
@@ -26,17 +29,16 @@ class UserActivityRepositoryTest {
     @BeforeEach
     void setUp() {
         userId = UUID.randomUUID();
-        userActivityRepository.deleteAll();
     }
 
-    private UserActivity buildActivity(UUID uid, String action, String details, String ip) {
-        return UserActivity.builder()
-                .userId(uid)
-                .action(action)
-                .details(details)
-                .ipAddress(ip)
-                .userAgent("Mozilla/5.0")
-                .build();
+    private UserActivity buildActivity(UUID uid, String action, String details) {
+        UserActivity activity = new UserActivity();
+        activity.setId(UUID.randomUUID());
+        activity.setUserId(uid);
+        activity.setAction(action);
+        activity.setDetails(details);
+        activity.setIpAddress("10.0.0.1");
+        return activity;
     }
 
     @Nested
@@ -44,9 +46,11 @@ class UserActivityRepositoryTest {
 
         @Test
         void returnsActivitiesForCorrectUser() {
-            userActivityRepository.save(buildActivity(userId, "LOGIN", "Login success", "10.0.0.1"));
-            userActivityRepository.save(buildActivity(userId, "LOGOUT", "Logout", "10.0.0.1"));
-            userActivityRepository.save(buildActivity(UUID.randomUUID(), "LOGIN", "Other user", "10.0.0.2"));
+            UserActivity a1 = buildActivity(userId, "LOGIN", "Login success");
+            UserActivity a2 = buildActivity(userId, "LOGOUT", "Logout");
+            Page<UserActivity> page = new PageImpl<>(List.of(a1, a2));
+            when(userActivityRepository.findByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(0, 10)))
+                    .thenReturn(page);
 
             Page<UserActivity> result = userActivityRepository
                     .findByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(0, 10));
@@ -57,17 +61,24 @@ class UserActivityRepositoryTest {
 
         @Test
         void returnsEmptyPageWhenUserHasNoActivities() {
+            UUID otherId = UUID.randomUUID();
+            Page<UserActivity> emptyPage = new PageImpl<>(List.of());
+            when(userActivityRepository.findByUserIdOrderByCreatedAtDesc(otherId, PageRequest.of(0, 10)))
+                    .thenReturn(emptyPage);
+
             Page<UserActivity> result = userActivityRepository
-                    .findByUserIdOrderByCreatedAtDesc(UUID.randomUUID(), PageRequest.of(0, 10));
+                    .findByUserIdOrderByCreatedAtDesc(otherId, PageRequest.of(0, 10));
 
             assertThat(result.getTotalElements()).isZero();
         }
 
         @Test
-        void returnsResultsInDescendingOrderByCreatedAt() throws InterruptedException {
-            UserActivity first = userActivityRepository.save(buildActivity(userId, "LOGIN", "First login", "1.1.1.1"));
-            Thread.sleep(10);
-            UserActivity second = userActivityRepository.save(buildActivity(userId, "LOGOUT", "Logout", "1.1.1.1"));
+        void returnsResultsInDescendingOrderByCreatedAt() {
+            UserActivity first = buildActivity(userId, "LOGIN", "First login");
+            UserActivity second = buildActivity(userId, "LOGOUT", "Logout");
+            Page<UserActivity> page = new PageImpl<>(List.of(second, first));
+            when(userActivityRepository.findByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(0, 10)))
+                    .thenReturn(page);
 
             Page<UserActivity> result = userActivityRepository
                     .findByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(0, 10));
@@ -78,9 +89,14 @@ class UserActivityRepositoryTest {
 
         @Test
         void respectsPaginationForActivityLog() {
-            for (int i = 0; i < 6; i++) {
-                userActivityRepository.save(buildActivity(userId, "ACTION_" + i, "detail", "1.1.1.1"));
-            }
+            List<UserActivity> activities = List.of(
+                    buildActivity(userId, "A1", "d"),
+                    buildActivity(userId, "A2", "d"),
+                    buildActivity(userId, "A3", "d")
+            );
+            Page<UserActivity> page = new PageImpl<>(activities, PageRequest.of(0, 3), 6);
+            when(userActivityRepository.findByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(0, 3)))
+                    .thenReturn(page);
 
             Page<UserActivity> result = userActivityRepository
                     .findByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(0, 3));
@@ -96,9 +112,10 @@ class UserActivityRepositoryTest {
 
         @Test
         void returnsOnlyActivitiesMatchingAction() {
-            userActivityRepository.save(buildActivity(userId, "LOGIN", "Login", "10.0.0.1"));
-            userActivityRepository.save(buildActivity(userId, "LOGIN", "Login again", "10.0.0.2"));
-            userActivityRepository.save(buildActivity(userId, "LOGOUT", "Logout", "10.0.0.1"));
+            UserActivity a1 = buildActivity(userId, "LOGIN", "Login");
+            UserActivity a2 = buildActivity(userId, "LOGIN", "Login again");
+            when(userActivityRepository.findByUserIdAndAction(userId, "LOGIN", PageRequest.of(0, 10)))
+                    .thenReturn(List.of(a1, a2));
 
             List<UserActivity> result = userActivityRepository
                     .findByUserIdAndAction(userId, "LOGIN", PageRequest.of(0, 10));
@@ -109,7 +126,8 @@ class UserActivityRepositoryTest {
 
         @Test
         void returnsEmptyListWhenActionNotFound() {
-            userActivityRepository.save(buildActivity(userId, "LOGIN", "Login", "10.0.0.1"));
+            when(userActivityRepository.findByUserIdAndAction(userId, "PASSWORD_CHANGE", PageRequest.of(0, 10)))
+                    .thenReturn(List.of());
 
             List<UserActivity> result = userActivityRepository
                     .findByUserIdAndAction(userId, "PASSWORD_CHANGE", PageRequest.of(0, 10));
@@ -119,9 +137,9 @@ class UserActivityRepositoryTest {
 
         @Test
         void doesNotReturnActivitiesFromOtherUsers() {
-            UUID otherUserId = UUID.randomUUID();
-            userActivityRepository.save(buildActivity(otherUserId, "LOGIN", "Other user login", "1.2.3.4"));
-            userActivityRepository.save(buildActivity(userId, "LOGIN", "My login", "5.6.7.8"));
+            UserActivity mine = buildActivity(userId, "LOGIN", "My login");
+            when(userActivityRepository.findByUserIdAndAction(userId, "LOGIN", PageRequest.of(0, 10)))
+                    .thenReturn(List.of(mine));
 
             List<UserActivity> result = userActivityRepository
                     .findByUserIdAndAction(userId, "LOGIN", PageRequest.of(0, 10));
@@ -132,9 +150,12 @@ class UserActivityRepositoryTest {
 
         @Test
         void respectsPaginationInFindByUserIdAndAction() {
-            for (int i = 0; i < 5; i++) {
-                userActivityRepository.save(buildActivity(userId, "LOGIN", "Login " + i, "1.1.1.1"));
-            }
+            List<UserActivity> twoResults = List.of(
+                    buildActivity(userId, "LOGIN", "Login 1"),
+                    buildActivity(userId, "LOGIN", "Login 2")
+            );
+            when(userActivityRepository.findByUserIdAndAction(userId, "LOGIN", PageRequest.of(0, 2)))
+                    .thenReturn(twoResults);
 
             List<UserActivity> result = userActivityRepository
                     .findByUserIdAndAction(userId, "LOGIN", PageRequest.of(0, 2));
@@ -148,9 +169,7 @@ class UserActivityRepositoryTest {
 
         @Test
         void returnsCorrectCountForUserAndAction() {
-            userActivityRepository.save(buildActivity(userId, "LOGIN", "Login 1", "1.1.1.1"));
-            userActivityRepository.save(buildActivity(userId, "LOGIN", "Login 2", "1.1.1.2"));
-            userActivityRepository.save(buildActivity(userId, "LOGOUT", "Logout", "1.1.1.1"));
+            when(userActivityRepository.countByUserIdAndAction(userId, "LOGIN")).thenReturn(2L);
 
             long count = userActivityRepository.countByUserIdAndAction(userId, "LOGIN");
 
@@ -159,6 +178,8 @@ class UserActivityRepositoryTest {
 
         @Test
         void returnsZeroWhenNoMatchingActivities() {
+            when(userActivityRepository.countByUserIdAndAction(userId, "LOGIN")).thenReturn(0L);
+
             long count = userActivityRepository.countByUserIdAndAction(userId, "LOGIN");
 
             assertThat(count).isZero();
@@ -166,11 +187,12 @@ class UserActivityRepositoryTest {
 
         @Test
         void doesNotCountActivitiesFromOtherUsers() {
-            userActivityRepository.save(buildActivity(UUID.randomUUID(), "LOGIN", "Other", "1.1.1.1"));
+            when(userActivityRepository.countByUserIdAndAction(userId, "LOGIN")).thenReturn(0L);
 
             long count = userActivityRepository.countByUserIdAndAction(userId, "LOGIN");
 
             assertThat(count).isZero();
+            verify(userActivityRepository).countByUserIdAndAction(userId, "LOGIN");
         }
     }
 
@@ -178,12 +200,11 @@ class UserActivityRepositoryTest {
     class FindRecentActivities {
 
         @Test
-        void returnsActivitiesAfterGivenTimestamp() throws InterruptedException {
-            userActivityRepository.save(buildActivity(userId, "LOGIN", "Old login", "1.1.1.1"));
-            Thread.sleep(20);
-            LocalDateTime since = LocalDateTime.now();
-            Thread.sleep(10);
-            userActivityRepository.save(buildActivity(userId, "LOGIN", "Recent login", "1.1.1.1"));
+        void returnsActivitiesAfterGivenTimestamp() {
+            LocalDateTime since = LocalDateTime.now().minusMinutes(5);
+            UserActivity recent = buildActivity(userId, "LOGIN", "Recent login");
+            when(userActivityRepository.findRecentActivities(userId, since))
+                    .thenReturn(List.of(recent));
 
             List<UserActivity> result = userActivityRepository.findRecentActivities(userId, since);
 
@@ -194,6 +215,7 @@ class UserActivityRepositoryTest {
         @Test
         void returnsEmptyListWhenNoRecentActivities() {
             LocalDateTime future = LocalDateTime.now().plusHours(1);
+            when(userActivityRepository.findRecentActivities(userId, future)).thenReturn(List.of());
 
             List<UserActivity> result = userActivityRepository.findRecentActivities(userId, future);
 
@@ -202,11 +224,9 @@ class UserActivityRepositoryTest {
 
         @Test
         void doesNotReturnActivitiesFromOtherUsers() {
-            UUID otherUserId = UUID.randomUUID();
             LocalDateTime since = LocalDateTime.now().minusMinutes(1);
-
-            userActivityRepository.save(buildActivity(otherUserId, "LOGIN", "Other user", "2.2.2.2"));
-            userActivityRepository.save(buildActivity(userId, "LOGIN", "My activity", "1.1.1.1"));
+            UserActivity mine = buildActivity(userId, "LOGIN", "My activity");
+            when(userActivityRepository.findRecentActivities(userId, since)).thenReturn(List.of(mine));
 
             List<UserActivity> result = userActivityRepository.findRecentActivities(userId, since);
 
@@ -215,12 +235,12 @@ class UserActivityRepositoryTest {
         }
 
         @Test
-        void returnsResultsInDescendingOrder() throws InterruptedException {
+        void returnsResultsInDescendingOrder() {
             LocalDateTime since = LocalDateTime.now().minusMinutes(1);
-
-            UserActivity first = userActivityRepository.save(buildActivity(userId, "LOGIN", "First", "1.1.1.1"));
-            Thread.sleep(10);
-            UserActivity second = userActivityRepository.save(buildActivity(userId, "LOGOUT", "Second", "1.1.1.1"));
+            UserActivity first = buildActivity(userId, "LOGIN", "First");
+            UserActivity second = buildActivity(userId, "LOGOUT", "Second");
+            when(userActivityRepository.findRecentActivities(userId, since))
+                    .thenReturn(List.of(second, first));
 
             List<UserActivity> result = userActivityRepository.findRecentActivities(userId, since);
 

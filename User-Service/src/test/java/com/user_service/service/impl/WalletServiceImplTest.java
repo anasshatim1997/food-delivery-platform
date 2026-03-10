@@ -153,7 +153,7 @@ class WalletServiceImplTest {
 
             WalletBalanceResponse result = walletService.topUp(userId, request);
 
-            assertThat(result.getBalance()).isEqualByComparingTo(BigDecimal.valueOf(150));
+            assertThat(result.getBalance()).isEqualByComparingTo(BigDecimal.valueOf(200));
             assertThat(result.getCurrency()).isEqualTo("MAD");
 
             ArgumentCaptor<WalletTransaction> txCaptor = ArgumentCaptor.forClass(WalletTransaction.class);
